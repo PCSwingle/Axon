@@ -1,8 +1,8 @@
 #include <fstream>
 #include <iostream>
 
-#include "lexer.h"
-#include "ast.h"
+#include "lexer/lexer.h"
+#include "ast/ast.h"
 #include "llvm/IR/Module.h"
 
 using namespace llvm;

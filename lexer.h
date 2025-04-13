@@ -10,6 +10,7 @@
 enum TokenType {
     TOK_IDENTIFIER,
     TOK_KEYWORD,
+    TOK_TYPE,
     TOK_VALUE,
     TOK_EOF,
     TOK_BINOP,
@@ -54,10 +55,15 @@ std::unordered_set<std::string> UNOPS{
 };
 
 
+#define X_TYPE \
+    TYPE(INT, "int") \
+    TYPE(LONG, "long") \
+    TYPE(BOOL, "bool")
+
 std::unordered_set<std::string> TYPES{
-    "int",
-    "long",
-    "bool",
+#define TYPE(NAME, STR) STR,
+    X_TYPE
+#undef TYPE
 };
 
 #define X_KW \
@@ -70,10 +76,16 @@ std::unordered_set<std::string> TYPES{
 #define KEYWORD(NAME, STR) const std::string KW_##NAME = STR;
 X_KW
 #undef KEYWORD
+#define TYPE(NAME, STR) const std::string KW_##NAME = STR;
+X_TYPE
+#undef TYPE
 std::unordered_set<std::string> KEYWORDS{
 #define KEYWORD(NAME, STR) STR,
     X_KW
 #undef KEYWORD
+#define TYPE(NAME, STR) STR,
+    X_TYPE
+#undef TYPE
 };
 
 struct Token {
@@ -81,10 +93,6 @@ struct Token {
     TokenType type;
 
     explicit Token(std::string rawToken, const TokenType type): rawToken(std::move(rawToken)), type(type) {
-    }
-
-    bool isType() {
-        return TYPES.find(rawToken) != TYPES.end();
     }
 };
 
@@ -130,6 +138,9 @@ class Lexer {
             while (isalnum(cur) || cur == '_') {
                 rawToken += cur;
                 next();
+            }
+            if (TYPES.find(rawToken) != KEYWORDS.end()) {
+                return Token(rawToken, TOK_TYPE);
             }
             if (KEYWORDS.find(rawToken) != KEYWORDS.end()) {
                 return Token(rawToken, TOK_KEYWORD);

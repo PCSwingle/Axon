@@ -36,6 +36,5 @@ int main() {
     std::string text = readFile("test.ax");
     Lexer lexer(text);
     auto mainBlock = parseBlock(lexer, true);
-    std::cout << mainBlock->toString() << std::endl;
     return 0;
 }

@@ -21,6 +21,19 @@ class ExprAST : public AST {
 class StatementAST : public AST {
 };
 
+// type
+class TypeAST : public AST {
+    std::string type;
+
+public:
+    explicit TypeAST(std::string type): type(std::move(type)) {
+    }
+
+    std::string toString() override {
+        return "Type(" + type + ")";
+    }
+};
+
 // expr
 class IdentifierExprAST : public ExprAST {
     std::string identifier;
@@ -101,12 +114,12 @@ public:
 
 // statements
 class VarAST : public StatementAST {
-    std::optional<std::string> type;
+    std::optional<std::unique_ptr<TypeAST> > type;
     std::unique_ptr<IdentifierExprAST> identifier;
     std::unique_ptr<ExprAST> expr;
 
 public:
-    explicit VarAST(std::optional<std::string> type,
+    explicit VarAST(std::optional<std::unique_ptr<TypeAST> > type,
                     std::unique_ptr<IdentifierExprAST> identifier,
                     std::unique_ptr<ExprAST> expr): type(std::move(type)),
                                                     identifier(std::move(identifier)),
@@ -114,7 +127,8 @@ public:
     }
 
     std::string toString() override {
-        return "Var(" + (type.has_value() ? type.value() + " " : "") + identifier->toString() + " = " + expr->toString()
+        return "Var(" + (type.has_value() ? type.value()->toString() + " " : "") + identifier->toString() + " = " + expr
+               ->toString()
                + ")";
     }
 };
@@ -122,22 +136,22 @@ public:
 class BlockAST;
 
 struct SigArg {
-    std::string type;
+    std::unique_ptr<TypeAST> type;
     std::unique_ptr<IdentifierExprAST> identifier;
 
     std::string toString() {
-        return type + " " + identifier->toString();
+        return type->toString() + " " + identifier->toString();
     }
 };
 
 class FuncAST : public StatementAST {
-    std::string type;
+    std::unique_ptr<TypeAST> type;
     std::unique_ptr<IdentifierExprAST> funcName;
     std::vector<SigArg> signature;
     std::unique_ptr<BlockAST> block;
 
 public:
-    explicit FuncAST(std::string type,
+    explicit FuncAST(std::unique_ptr<TypeAST> type,
                      std::unique_ptr<IdentifierExprAST> funcName,
                      std::vector<SigArg>
                      signature,
@@ -217,7 +231,7 @@ std::string FuncAST::toString() {
             result << ", ";
         }
     }
-    return "Func(" + type + " " + funcName->toString() + "(" + result.str() + ")) " + block->toString();
+    return "Func(" + type->toString() + " " + funcName->toString() + "(" + result.str() + ")) " + block->toString();
 }
 
 std::string IfAST::toString() {
@@ -412,9 +426,9 @@ std::unique_ptr<WhileAST> parseWhile(Lexer &lexer) {
 }
 
 std::unique_ptr<StatementAST> parseVarOrCall(Lexer &lexer) {
-    std::optional<std::string> type;
-    if (lexer.curToken.isType()) {
-        type = lexer.curToken.rawToken;
+    std::optional<std::unique_ptr<TypeAST> > type;
+    if (lexer.curToken.type == TOK_TYPE) {
+        type = std::make_unique<TypeAST>(lexer.curToken.rawToken);
         lexer.consume();
     }
 
@@ -465,10 +479,10 @@ std::unique_ptr<FuncAST> parseFunc(Lexer &lexer) {
         return logError("Expected func");
     }
     lexer.consume();
-    if (!lexer.curToken.isType()) {
+    if (lexer.curToken.type != TOK_TYPE) {
         return logError("Expected type");
     }
-    auto returnType = lexer.curToken.rawToken;
+    auto returnType = std::make_unique<TypeAST>(lexer.curToken.rawToken);
     lexer.consume();
     if (!lexer.curToken.type == TOK_IDENTIFIER) {
         return logError("Expected function name identifier");
@@ -482,17 +496,17 @@ std::unique_ptr<FuncAST> parseFunc(Lexer &lexer) {
 
     std::vector<SigArg> signature;
     while (lexer.curToken.rawToken != ")") {
-        if (!lexer.curToken.isType()) {
+        if (lexer.curToken.type != TOK_TYPE) {
             return logError("Expected type");
         }
-        auto type = lexer.curToken.rawToken;
+        auto type = std::make_unique<TypeAST>(lexer.curToken.rawToken);
         lexer.consume();
         if (!lexer.curToken.type == TOK_IDENTIFIER) {
             return logError("Expected function argument identifier");
         }
         auto identifier = std::make_unique<IdentifierExprAST>(lexer.curToken.rawToken);
         lexer.consume();
-        signature.push_back({type, std::move(identifier)});
+        signature.push_back({std::move(type), std::move(identifier)});
         if (lexer.curToken.rawToken == ",") {
             lexer.consume();
         } else if (lexer.curToken.rawToken != ")") {
@@ -501,14 +515,17 @@ std::unique_ptr<FuncAST> parseFunc(Lexer &lexer) {
     }
     lexer.consume();
     if (auto block = parseBlock(lexer)) {
-        return std::make_unique<FuncAST>(returnType, std::move(funcName), std::move(signature), std::move(block));
+        return std::make_unique<FuncAST>(std::move(returnType),
+                                         std::move(funcName),
+                                         std::move(signature),
+                                         std::move(block));
     } else {
         return nullptr;
     }
 }
 
 std::unique_ptr<StatementAST> parseStatement(Lexer &lexer) {
-    if (lexer.curToken.isType()) {
+    if (lexer.curToken.type == TOK_TYPE) {
         return parseVarOrCall(lexer);
     }
 
@@ -546,5 +563,10 @@ std::unique_ptr<BlockAST> parseBlock(Lexer &lexer, bool topLevel) {
         }
     }
     lexer.consume();
-    return std::make_unique<BlockAST>(std::move(statements));
+
+    auto block = std::make_unique<BlockAST>(std::move(statements));
+    if (DEBUG_AST_PRINT_BLOCK && topLevel) {
+        std::cout << block->toString() << std::endl;
+    }
+    return block;
 }

@@ -13,8 +13,11 @@ add_definitions(${LLVM_DEFINITIONS})
 
 add_executable(Axon
         src/main.cpp
+
         src/ast/ast_parsing.cpp
         src/ast/ast_utils.cpp
+        src/ast/ast_codegen.cpp
+
         src/lexer/lexer.cpp
 )
 

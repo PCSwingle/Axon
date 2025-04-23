@@ -13,7 +13,7 @@
 <Var> -> <Type>? <Identifier> [= | += | -= | ...] <Expr>
 <Func> -> func <Type> <Identifier>([<Type> <Identifier>,]*) <Block>
 
-<Statement> -> <Var> | <Call> | <Func> | <If> | <While> | ...
+<Statement> -> <Var> | <Expr> | <Func> | <If> | <While> | return <Expr> ... (should blocks count as statements?)
 <Block> -> { <Statement>* }
 
 <TopLevel> -> <Block> (but without {})

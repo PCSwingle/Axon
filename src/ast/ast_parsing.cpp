@@ -1,24 +1,25 @@
 #include <iostream>
 #include <memory>
-#include <lexer/lexer.h>
-#include <logging.h>
-#include <debug_consts.h>
+
+#include "lexer/lexer.h"
+#include "logging.h"
+#include "debug_consts.h"
+
 #include "ast.h"
 
-std::unique_ptr<ExprAST> parseExprNoBinop(Lexer &lexer) {
+std::unique_ptr<ExprAST> parseExprNoBinop(Lexer& lexer) {
     // doesn't check for binops; use parseExpr
 
     // values
     if (lexer.curToken.type == TOK_VALUE) {
         // TODO: accept ints
-        double value = strtod(lexer.curToken.rawToken.c_str(), nullptr);
         lexer.consume();
-        return std::make_unique<ValueExprAST>(value);
+        return std::make_unique<ValueExprAST>(lexer.curToken.rawToken);
     }
 
-    // identifiers and calls
+    // variables and calls
     if (lexer.curToken.type == TOK_IDENTIFIER) {
-        auto identifier = std::make_unique<IdentifierExprAST>(lexer.curToken.rawToken);
+        auto identifier = std::make_unique<IdentifierAST>(lexer.curToken.rawToken);
         lexer.consume();
         if (lexer.curToken.rawToken == "(") {
             // TODO: somehow don't do call args in 2 spots
@@ -39,7 +40,7 @@ std::unique_ptr<ExprAST> parseExprNoBinop(Lexer &lexer) {
             lexer.consume();
             return std::make_unique<CallExprAST>(std::move(identifier), std::move(args));
         } else {
-            return identifier;
+            return std::make_unique<VariableExprAST>(std::move(identifier));
         }
     }
 
@@ -71,7 +72,7 @@ std::unique_ptr<ExprAST> parseExprNoBinop(Lexer &lexer) {
     return logError("Expected expression");
 }
 
-std::unique_ptr<ExprAST> parseExpr(Lexer &lexer) {
+std::unique_ptr<ExprAST> parseExpr(Lexer& lexer) {
     // Parses an expression _with_ binop checking
 
     auto firstExpr = parseExprNoBinop(lexer);
@@ -117,7 +118,7 @@ std::unique_ptr<ExprAST> parseExpr(Lexer &lexer) {
     return std::move(stack.back());
 }
 
-std::unique_ptr<IfAST> parseIf(Lexer &lexer, bool onIf) {
+std::unique_ptr<IfAST> parseIf(Lexer& lexer, bool onIf) {
     auto startToken = onIf ? KW_IF : KW_ELIF;
     if (lexer.curToken.rawToken != startToken) {
         return logError("Expected " + startToken);
@@ -160,7 +161,7 @@ std::unique_ptr<IfAST> parseIf(Lexer &lexer, bool onIf) {
     }
 }
 
-std::unique_ptr<WhileAST> parseWhile(Lexer &lexer) {
+std::unique_ptr<WhileAST> parseWhile(Lexer& lexer) {
     if (lexer.curToken.rawToken != KW_WHILE) {
         return logError("Expected while");
     }
@@ -183,7 +184,7 @@ std::unique_ptr<WhileAST> parseWhile(Lexer &lexer) {
     }
 }
 
-std::unique_ptr<StatementAST> parseVarOrCall(Lexer &lexer) {
+std::unique_ptr<StatementAST> parseVarOrCall(Lexer& lexer) {
     std::optional<std::unique_ptr<TypeAST> > type;
     if (lexer.curToken.type == TOK_TYPE) {
         type = std::make_unique<TypeAST>(lexer.curToken.rawToken);
@@ -193,7 +194,7 @@ std::unique_ptr<StatementAST> parseVarOrCall(Lexer &lexer) {
     if (lexer.curToken.type != TOK_IDENTIFIER) {
         return logError("Expected variable or function call identifier");
     }
-    auto identifier = std::make_unique<IdentifierExprAST>(lexer.curToken.rawToken);
+    auto identifier = std::make_unique<IdentifierAST>(lexer.curToken.rawToken);
     lexer.consume();
 
     if (lexer.curToken.rawToken == "(") {
@@ -232,7 +233,7 @@ std::unique_ptr<StatementAST> parseVarOrCall(Lexer &lexer) {
     }
 }
 
-std::unique_ptr<FuncAST> parseFunc(Lexer &lexer) {
+std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
     if (lexer.curToken.rawToken != KW_FUNC) {
         return logError("Expected func");
     }
@@ -245,7 +246,7 @@ std::unique_ptr<FuncAST> parseFunc(Lexer &lexer) {
     if (!lexer.curToken.type == TOK_IDENTIFIER) {
         return logError("Expected function name identifier");
     }
-    auto funcName = std::make_unique<IdentifierExprAST>(lexer.curToken.rawToken);
+    auto funcName = std::make_unique<IdentifierAST>(lexer.curToken.rawToken);
     lexer.consume();
     if (lexer.curToken.rawToken != "(") {
         return logError("Expected (");
@@ -262,7 +263,7 @@ std::unique_ptr<FuncAST> parseFunc(Lexer &lexer) {
         if (!lexer.curToken.type == TOK_IDENTIFIER) {
             return logError("Expected function argument identifier");
         }
-        auto identifier = std::make_unique<IdentifierExprAST>(lexer.curToken.rawToken);
+        auto identifier = std::make_unique<IdentifierAST>(lexer.curToken.rawToken);
         lexer.consume();
         signature.push_back({std::move(type), std::move(identifier)});
         if (lexer.curToken.rawToken == ",") {
@@ -282,7 +283,7 @@ std::unique_ptr<FuncAST> parseFunc(Lexer &lexer) {
     }
 }
 
-std::unique_ptr<StatementAST> parseStatement(Lexer &lexer) {
+std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
     if (lexer.curToken.type == TOK_TYPE) {
         return parseVarOrCall(lexer);
     }
@@ -303,7 +304,7 @@ std::unique_ptr<StatementAST> parseStatement(Lexer &lexer) {
 }
 
 
-std::unique_ptr<BlockAST> parseBlock(Lexer &lexer, bool topLevel) {
+std::unique_ptr<BlockAST> parseBlock(Lexer& lexer, bool topLevel) {
     if (!topLevel) {
         if (lexer.curToken.rawToken != "{") {
             return logError("Expected {");

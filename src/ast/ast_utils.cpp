@@ -1,4 +1,6 @@
 #include <sstream>
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/IR/Type.h>
 
 #include "ast.h"
 
@@ -6,13 +8,18 @@ std::string TypeAST::toString() {
     return "Type(" + type + ")";
 }
 
-std::string IdentifierExprAST::toString() {
+std::string IdentifierAST::toString() {
     return "Identifier(" + identifier + ")";
 }
 
 std::string ValueExprAST::toString() {
-    return "Value(" + std::to_string(value) + ")";
+    return "Value(" + rawValue + ")";
 }
+
+std::string VariableExprAST::toString() {
+    return "Variable(" + varName->toString() + ")";
+}
+
 
 std::string BinaryOpExprAST::toString() {
     return "BinOp(" + LHS->toString() + " " + binOp + " " + RHS->toString() + ")";

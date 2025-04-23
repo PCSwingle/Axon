@@ -1,7 +1,8 @@
+#include <vector>
+
+#include "debug_consts.h"
 #include "lexer.h"
 
-#include <vector>
-#include <debug_consts.h>
 
 char Lexer::next() {
     index += 1;
@@ -40,13 +41,17 @@ Token Lexer::_consume() {
             rawToken += cur;
             next();
         }
-        if (TYPES.find(rawToken) != KEYWORDS.end()) {
-            return Token(rawToken, TOK_TYPE);
+        TokenType type;
+        if (TYPES.find(rawToken) != TYPES.end()) {
+            type = TOK_TYPE;
+        } else if (VALUES.find(rawToken) != VALUES.end()) {
+            type = TOK_VALUE;
+        } else if (KEYWORDS.find(rawToken) != KEYWORDS.end()) {
+            type = TOK_KEYWORD;
+        } else {
+            type = TOK_IDENTIFIER;
         }
-        if (KEYWORDS.find(rawToken) != KEYWORDS.end()) {
-            return Token(rawToken, TOK_KEYWORD);
-        }
-        return Token(rawToken, TOK_IDENTIFIER);
+        return Token(rawToken, type);
     }
 
     // values
@@ -83,19 +88,19 @@ Token Lexer::_consume() {
     // operators
     std::vector<std::string> allOps;
     allOps.reserve(BINOPS.size() + UNOPS.size());
-    for (const auto &[str, _]: BINOPS) {
+    for (const auto& [str, _]: BINOPS) {
         allOps.push_back(str);
     }
-    for (const auto &str: UNOPS) {
+    for (const auto& str: UNOPS) {
         allOps.push_back(str);
     }
     std::sort(allOps.begin(),
               allOps.end(),
-              [](const std::string &a, const std::string &b) {
+              [](const std::string& a, const std::string& b) {
                   return a.length() > b.length();
               });
 
-    for (const auto &op: allOps) {
+    for (const auto& op: allOps) {
         auto length = op.length();
         if (index + length > text.length()) {
             continue;
@@ -108,7 +113,7 @@ Token Lexer::_consume() {
         }
     }
 
-    for (const auto &op: UNOPS) {
+    for (const auto& op: UNOPS) {
         auto length = op.length();
         if (index + length > text.length()) {
             continue;

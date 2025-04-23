@@ -57,6 +57,7 @@ inline const std::unordered_set<std::string> UNOPS{
 #define X_TYPE \
     TYPE(INT, "int") \
     TYPE(LONG, "long") \
+    TYPE(DOUBLE, "double") \
     TYPE(BOOL, "bool")
 
 inline const std::unordered_set<std::string> TYPES{
@@ -65,12 +66,24 @@ inline const std::unordered_set<std::string> TYPES{
 #undef TYPE
 };
 
+#define X_VALUE \
+VALUE(TRUE, "true") \
+VALUE(FALSE, "false")
+
+inline const std::unordered_set<std::string> VALUES{
+#define VALUE(NAME, STR) STR,
+    X_VALUE
+#undef VALUE
+};
+
+
 #define X_KW \
     KEYWORD(FUNC , "func") \
     KEYWORD(IF, "if") \
     KEYWORD(ELIF, "elif") \
     KEYWORD(ELSE, "else") \
-    KEYWORD(WHILE, "while")
+    KEYWORD(WHILE, "while") \
+    KEYWORD(RETURN, "return")
 
 #define KEYWORD(NAME, STR) const std::string KW_##NAME = STR;
 X_KW
@@ -78,6 +91,9 @@ X_KW
 #define TYPE(NAME, STR) const std::string KW_##NAME = STR;
 X_TYPE
 #undef TYPE
+#define VALUE(NAME, STR) const std::string KW_##NAME = STR;
+X_VALUE
+#undef VALUE
 inline const std::unordered_set<std::string> KEYWORDS{
 #define KEYWORD(NAME, STR) STR,
     X_KW
@@ -85,6 +101,9 @@ inline const std::unordered_set<std::string> KEYWORDS{
 #define TYPE(NAME, STR) STR,
     X_TYPE
 #undef TYPE
+#define VALUE(NAME, STR) STR,
+    X_VALUE
+#undef VALUE
 };
 
 struct Token {

@@ -1,8 +1,16 @@
 cmake_minimum_required(VERSION 3.31)
 project(Axon)
-
 set(CMAKE_C_STANDARD 11)
 
+# argparse
+include(FetchContent)
+FetchContent_Declare(
+        argparse
+        GIT_REPOSITORY https://github.com/p-ranav/argparse.git
+)
+FetchContent_MakeAvailable(argparse)
+
+# llvm
 find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
@@ -22,4 +30,4 @@ add_executable(Axon
         src/lexer/lexer.cpp
 )
 
-target_link_libraries(Axon LLVM)
+target_link_libraries(Axon LLVM argparse)

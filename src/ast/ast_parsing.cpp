@@ -12,9 +12,9 @@ std::unique_ptr<ExprAST> parseExprNoBinop(Lexer& lexer) {
 
     // values
     if (lexer.curToken.type == TOK_VALUE) {
-        // TODO: accept ints
+        auto value = lexer.curToken.rawToken;
         lexer.consume();
-        return std::make_unique<ValueExprAST>(lexer.curToken.rawToken);
+        return std::make_unique<ValueExprAST>(value);
     }
 
     // variables and calls
@@ -69,7 +69,7 @@ std::unique_ptr<ExprAST> parseExprNoBinop(Lexer& lexer) {
         }
     }
 
-    return logError("Expected expression");
+    return logError("Expected expression, got " + lexer.curToken.rawToken);
 }
 
 std::unique_ptr<ExprAST> parseExpr(Lexer& lexer) {
@@ -184,6 +184,23 @@ std::unique_ptr<WhileAST> parseWhile(Lexer& lexer) {
     }
 }
 
+std::unique_ptr<ReturnAST> parseReturn(Lexer& lexer) {
+    if (lexer.curToken.rawToken != KW_RETURN) {
+        return logError("expected return");
+    }
+    lexer.consume();
+
+    if (lexer.curToken.type != TOK_DELIMITER) {
+        auto expr = parseExpr(lexer);
+        if (!expr) {
+            return nullptr;
+        }
+        return std::make_unique<ReturnAST>(std::move(expr));
+    } else {
+        return std::make_unique<ReturnAST>(std::optional<std::unique_ptr<ExprAST> >{});
+    }
+}
+
 std::unique_ptr<StatementAST> parseVarOrCall(Lexer& lexer) {
     std::optional<std::unique_ptr<TypeAST> > type;
     if (lexer.curToken.type == TOK_TYPE) {
@@ -294,13 +311,15 @@ std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
         return parseIf(lexer);
     } else if (lexer.curToken.rawToken == KW_WHILE) {
         return parseWhile(lexer);
+    } else if (lexer.curToken.rawToken == KW_RETURN) {
+        return parseReturn(lexer);
     }
 
     if (lexer.curToken.type == TOK_IDENTIFIER) {
         return parseVarOrCall(lexer);
-    } else {
-        return logError("Expected variable or function call identifier");
     }
+
+    return logError("Expected valid statement");
 }
 
 
@@ -315,6 +334,10 @@ std::unique_ptr<BlockAST> parseBlock(Lexer& lexer, bool topLevel) {
     std::vector<std::unique_ptr<StatementAST> > statements;
     auto expected = topLevel ? std::string(1, EOF) : "}";
     while (lexer.curToken.rawToken != expected) {
+        if (lexer.curToken.type == TOK_DELIMITER) {
+            lexer.consume();
+            continue;
+        }
         if (auto statement = parseStatement(lexer)) {
             statements.push_back(std::move(statement));
         } else {

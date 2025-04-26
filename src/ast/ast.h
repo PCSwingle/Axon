@@ -3,12 +3,16 @@
 #include <optional>
 #include <vector>
 
+#include "module_state.h"
+
 namespace llvm {
     class Value;
     class Type;
 }
 
+
 // abstracts
+
 class AST {
 public:
     virtual ~AST() = default;
@@ -18,20 +22,20 @@ public:
 
 class StatementAST : public AST {
 public:
-    virtual bool codegen() = 0;
+    virtual bool codegen(ModuleState& state) = 0;
 };
 
 class ExprAST : public StatementAST {
 public:
-    bool codegen() override {
-        if (!codegenValue()) {
+    bool codegen(ModuleState& state) override {
+        if (!codegenValue(state)) {
             return false;
         } else {
             return true;
         }
     }
 
-    virtual llvm::Value* codegenValue() = 0;
+    virtual llvm::Value* codegenValue(ModuleState& state) = 0;
 };
 
 // structs
@@ -43,7 +47,7 @@ struct TypeAST {
 
     std::string toString();
 
-    llvm::Type* getType();
+    llvm::Type* getType(ModuleState& state);
 };
 
 struct IdentifierAST {
@@ -65,7 +69,7 @@ public:
 
     std::string toString() override;
 
-    llvm::Value* codegenValue() override;
+    llvm::Value* codegenValue(ModuleState& state) override;
 };
 
 class VariableExprAST : public ExprAST {
@@ -77,7 +81,7 @@ public:
 
     std::string toString() override;
 
-    llvm::Value* codegenValue() override;
+    llvm::Value* codegenValue(ModuleState& state) override;
 };
 
 class BinaryOpExprAST : public ExprAST {
@@ -93,7 +97,7 @@ public:
 
     std::string toString() override;
 
-    llvm::Value* codegenValue() override;
+    llvm::Value* codegenValue(ModuleState& state) override;
 };
 
 class UnaryOpExprAST : public ExprAST {
@@ -107,7 +111,7 @@ public:
 
     std::string toString() override;
 
-    llvm::Value* codegenValue() override;
+    llvm::Value* codegenValue(ModuleState& state) override;
 };
 
 class CallExprAST : public ExprAST {
@@ -122,7 +126,7 @@ public:
 
     std::string toString() override;
 
-    llvm::Value* codegenValue() override;
+    llvm::Value* codegenValue(ModuleState& state) override;
 };
 
 // statements
@@ -141,7 +145,7 @@ public:
 
     std::string toString() override;
 
-    bool codegen() override;
+    bool codegen(ModuleState& state) override;
 };
 
 class BlockAST;
@@ -172,7 +176,7 @@ public:
 
     std::string toString() override;
 
-    bool codegen() override;
+    bool codegen(ModuleState& state) override;
 };
 
 class IfAST : public StatementAST {
@@ -189,7 +193,7 @@ public:
 
     std::string toString() override;
 
-    bool codegen() override;
+    bool codegen(ModuleState& state) override;
 };
 
 class WhileAST : public StatementAST {
@@ -204,7 +208,20 @@ public:
 
     std::string toString() override;
 
-    bool codegen() override;
+    bool codegen(ModuleState& state) override;
+};
+
+class ReturnAST : public StatementAST {
+    std::optional<std::unique_ptr<ExprAST> > returnExpr;
+
+public:
+    explicit ReturnAST(std::optional<std::unique_ptr<ExprAST> > returnExpr
+    ): returnExpr(std::move(returnExpr)) {
+    }
+
+    std::string toString() override;
+
+    bool codegen(ModuleState& state) override;
 };
 
 // block
@@ -217,7 +234,7 @@ public:
 
     std::string toString() override;
 
-    bool codegen();
+    bool codegen(ModuleState& state);
 };
 
 // parsing funcs

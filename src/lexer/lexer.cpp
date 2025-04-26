@@ -23,10 +23,16 @@ char Lexer::peek(int num) {
 }
 
 Token Lexer::_consume() {
-    // token delimiters
-    if (isspace(cur) || cur == ';') {
+    // whitespace
+    while (isspace(cur) && cur != '\n') {
         next();
-        return _consume();
+    }
+
+    // token delimiters (; and newline)
+    if (cur == ';' || cur == '\n') {
+        std::string rawToken{1, cur};
+        next();
+        return Token(rawToken, TOK_DELIMITER);
     }
 
     // eof

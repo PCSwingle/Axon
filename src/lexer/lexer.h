@@ -14,6 +14,7 @@ enum TokenType {
     TOK_EOF,
     TOK_BINOP,
     TOK_UNOP,
+    TOK_DELIMITER,
     TOK_UNKNOWN,
 };
 

@@ -69,6 +69,11 @@ std::string WhileAST::toString() {
     return "While(" + expr->toString() + ") " + block->toString();
 }
 
+std::string ReturnAST::toString() {
+    return "Return(" + (returnExpr.has_value() ? returnExpr->get()->toString() : "") + ")";
+}
+
+
 std::string BlockAST::toString() {
     std::string indent(2, ' ');
     std::ostringstream result;

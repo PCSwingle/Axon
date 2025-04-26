@@ -9,7 +9,7 @@ std::string readStdin() {
     std::string text;
     std::string line;
     while (getline(std::cin, line)) {
-        text += line;
+        text += line + "\n";
     }
     return text;
 }
@@ -23,7 +23,7 @@ std::string readFile(const std::string& filename) {
     std::string text;
     std::string line;
     while (getline(file, line)) {
-        text += line;
+        text += line + "\n";
     }
     file.close();
     return text;
@@ -32,6 +32,14 @@ std::string readFile(const std::string& filename) {
 int main() {
     std::string text = readFile("test.ax");
     Lexer lexer(text);
+
     auto mainBlock = parseBlock(lexer, true);
+    ModuleState module;
+    if (mainBlock && mainBlock->codegen(module)) {
+        std::cout << "successfully compiled!" << std::endl;
+        module.writeIR("out.bc");
+    } else {
+        std::cout << "did not successfully compile :(";
+    }
     return 0;
 }

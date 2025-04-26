@@ -17,6 +17,7 @@ add_executable(Axon
         src/ast/ast_parsing.cpp
         src/ast/ast_utils.cpp
         src/ast/ast_codegen.cpp
+        src/ast/module_state.cpp
 
         src/lexer/lexer.cpp
 )

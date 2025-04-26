@@ -1,4 +1,3 @@
-#include <map>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Verifier.h>
@@ -10,81 +9,81 @@
 
 using namespace llvm;
 
-// TODO: pass this through codegen instead of being global (maybe bundle together?)
-static std::unique_ptr<LLVMContext> Context;
-static std::unique_ptr<IRBuilder<> > Builder;
-static std::unique_ptr<Module> TheModule;
-static std::map<std::string, Value*> NamedValues;
 
-Type* TypeAST::getType() {
+Type* TypeAST::getType(ModuleState& state) {
     if (type == "int") {
-        return Type::getInt32Ty(*Context);
+        return Type::getInt32Ty(*state.ctx);
     } else if (type == "long") {
-        return Type::getInt64Ty(*Context);
+        return Type::getInt64Ty(*state.ctx);
     } else if (type == "double") {
-        return Type::getDoubleTy(*Context);
+        return Type::getDoubleTy(*state.ctx);
     }
 
     return logError("type " + type + " currently not supported");
 }
 
 // expr
-Value* ValueExprAST::codegenValue() {
+Value* ValueExprAST::codegenValue(ModuleState& state) {
     if (rawValue == KW_TRUE) {
-        return ConstantInt::getTrue(*Context);
+        return ConstantInt::getTrue(*state.ctx);
     } else if (rawValue == KW_FALSE) {
-        return ConstantInt::getFalse(*Context);
+        return ConstantInt::getFalse(*state.ctx);
     } else if (rawValue.find('.') != std::string::npos) {
-        return ConstantFP::get(Type::getDoubleTy(*Context), APFloat(APFloat::IEEEdouble(), rawValue));
+        return ConstantFP::get(Type::getDoubleTy(*state.ctx), APFloat(APFloat::IEEEdouble(), rawValue));
     } else {
-        return ConstantInt::getIntegerValue(Type::getInt64Ty(*Context), APInt(64, rawValue, 10));
+        return ConstantInt::getIntegerValue(Type::getInt64Ty(*state.ctx), APInt(64, rawValue, 10));
     }
 }
 
-llvm::Value* VariableExprAST::codegenValue() {
-    return logError("variables not supported... yet...");
+Value* VariableExprAST::codegenValue(ModuleState& state) {
+    Value* value = state.values[varName->identifier];
+    if (!value) {
+        return logError("undefined variable " + varName->identifier);
+    }
+    return value;
 }
 
 
-Value* BinaryOpExprAST::codegenValue() {
-    auto L = LHS->codegenValue();
-    auto R = RHS->codegenValue();
+Value* BinaryOpExprAST::codegenValue(ModuleState& state) {
+    auto L = LHS->codegenValue(state);
+    auto R = RHS->codegenValue(state);
     if (!L || !R) {
         return nullptr;
     }
 
     if (binOp == "+") {
-        return Builder->CreateAdd(L, R, "add_binop");
+        return state.builder->CreateAdd(L, R, "add_binop");
+        return state.builder->CreateAdd(L, R, "add_binop");
     } else if (binOp == "-") {
-        return Builder->CreateSub(L, R, "sub_binop");
+        return state.builder->CreateSub(L, R, "sub_binop");
     } else if (binOp == "*") {
-        return Builder->CreateMul(L, R, "mul_binop");
+        return state.builder->CreateMul(L, R, "mul_binop");
     } else if (binOp == "/") {
-        return Builder->CreateSDiv(L, R, "div_binop");
+        return state.builder->CreateSDiv(L, R, "div_binop");
     } else if (binOp == "%") {
-        return Builder->CreateSRem(L, R, "mod_binop");
+        return state.builder->CreateSRem(L, R, "mod_binop");
     }
 
     return logError("binop " + binOp + " currently not supported");
 }
 
 
-Value* UnaryOpExprAST::codegenValue() {
-    auto ex = expr->codegenValue();
+Value* UnaryOpExprAST::codegenValue(ModuleState& state) {
+    auto ex = expr->codegenValue(state);
     if (!ex) {
         return nullptr;
     }
 
     if (unaryOp == "-") {
-        return Builder->CreateNeg(ex, "neg_binop");
+        return state.builder->CreateNeg(ex, "neg_binop");
     }
 
     return logError("unop " + unaryOp + " currently not supported");
 }
 
 
-Value* CallExprAST::codegenValue() {
-    Function* callee = TheModule->getFunction(callName->identifier);
+Value* CallExprAST::codegenValue(ModuleState& state) {
+    Function* callee = state.module->getFunction(callName->identifier);
     if (!callee) {
         return logError("function " + callName->identifier + " not defined");
     }
@@ -96,7 +95,7 @@ Value* CallExprAST::codegenValue() {
 
     std::vector<Value*> argsV;
     for (int i = 0; i < args.size(); i++) {
-        auto arg = args[i]->codegenValue();
+        auto arg = args[i]->codegenValue(state);
         if (!arg) {
             return nullptr;
         }
@@ -107,56 +106,70 @@ Value* CallExprAST::codegenValue() {
         }
         argsV.push_back(arg);
     }
-    return Builder->CreateCall(callee, argsV, "call_" + callName->identifier);
+    return state.builder->CreateCall(callee, argsV, "call_" + callName->identifier);
 }
 
 // statements
-bool VarAST::codegen() {
+bool VarAST::codegen(ModuleState& state) {
     logError("variables not supported... yet...");
     return false;
 }
 
 
-bool FuncAST::codegen() {
+bool FuncAST::codegen(ModuleState& state) {
     // Create prototype
-    Type* returnType = type->getType();
+    Type* returnType = type->getType(state);
     std::vector<Type*> argTypes;
     for (const auto& sig: signature) {
-        argTypes.push_back(sig.type->getType());
+        argTypes.push_back(sig.type->getType(state));
     }
     FunctionType* FT = FunctionType::get(returnType, argTypes, false);
-    Function* F = Function::Create(FT, Function::ExternalLinkage, funcName->identifier, TheModule.get());
-    NamedValues.clear();
+    Function* F = Function::Create(FT, Function::ExternalLinkage, funcName->identifier, state.module.get());
+    state.values.clear();
     for (int i = 0; i < signature.size(); i++) {
         auto Arg = F->getArg(i);
         Arg->setName(signature[i].identifier->identifier);
-        NamedValues[signature[i].identifier->identifier] = Arg;
+        state.values[signature[i].identifier->identifier] = Arg;
     }
 
     // Function block
-    BasicBlock* BB = BasicBlock::Create(*Context, "entry", F);
-    Builder->SetInsertPoint(BB);
-    if (!block->codegen()) {
+    BasicBlock* BB = BasicBlock::Create(*state.ctx, "entry", F);
+    state.builder->SetInsertPoint(BB);
+    if (!block->codegen(state)) {
         return false;
     }
     verifyFunction(*F);
     return true;
 }
 
-bool IfAST::codegen() {
+bool IfAST::codegen(ModuleState& state) {
     logError("if not supported... yet...");
     return false;
 }
 
-bool WhileAST::codegen() {
+bool WhileAST::codegen(ModuleState& state) {
     logError("while not supported... yet...");
     return false;
 }
 
+bool ReturnAST::codegen(ModuleState& state) {
+    if (returnExpr.has_value()) {
+        Value* returnValue = returnExpr->get()->codegenValue(state);
+        if (!returnValue) {
+            return false;
+        }
+        state.builder->CreateRet(returnValue);
+    } else {
+        state.builder->CreateRetVoid();
+    }
+    return true;
+}
+
+
 // other
-bool BlockAST::codegen() {
+bool BlockAST::codegen(ModuleState& state) {
     for (const auto& statement: statements) {
-        if (!statement->codegen()) {
+        if (!statement->codegen(state)) {
             return false;
         }
     }

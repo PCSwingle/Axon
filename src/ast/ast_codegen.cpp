@@ -29,9 +29,32 @@ Value* ValueExprAST::codegenValue(ModuleState& state) {
     } else if (rawValue == KW_FALSE) {
         return ConstantInt::getFalse(*state.ctx);
     } else if (rawValue.find('.') != std::string::npos) {
-        return ConstantFP::get(Type::getDoubleTy(*state.ctx), APFloat(APFloat::IEEEdouble(), rawValue));
+        Type* type;
+        APFloat apVal(APFloat::IEEEsingle());
+        if (rawValue.back() == 'L') {
+            return logError("cannot use L on a floating point value");
+        } else if (rawValue.back() == 'D') {
+            type = Type::getDoubleTy(*state.ctx);
+            apVal = APFloat(APFloat::IEEEdouble(), rawValue.substr(0, rawValue.size() - 1));
+        } else {
+            type = Type::getFloatTy(*state.ctx);
+            apVal = APFloat(APFloat::IEEEsingle(), rawValue);
+        }
+        return ConstantFP::get(type, apVal);
     } else {
-        return ConstantInt::getIntegerValue(Type::getInt64Ty(*state.ctx), APInt(64, rawValue, 10));
+        Type* type;
+        APInt apVal;
+        if (rawValue.back() == 'D') {
+            return logError("cannot use D on an integer value");
+        } else if (rawValue.back() == 'L') {
+            type = Type::getInt64Ty(*state.ctx);
+            apVal = APInt(64, rawValue.substr(0, rawValue.size() - 1), 10);
+        } else {
+            type = Type::getInt32Ty(*state.ctx);
+            apVal = APInt(32, rawValue, 10);
+        }
+        // todo: check what happens if number is too large
+        return ConstantInt::getIntegerValue(type, apVal);
     }
 }
 

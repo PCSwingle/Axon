@@ -17,6 +17,8 @@ Type* TypeAST::getType(ModuleState& state) {
         return Type::getInt64Ty(*state.ctx);
     } else if (type == "double") {
         return Type::getDoubleTy(*state.ctx);
+    } else if (type == "void") {
+        return Type::getVoidTy(*state.ctx);
     }
 
     return logError("type " + type + " currently not supported");
@@ -129,7 +131,11 @@ Value* CallExprAST::codegenValue(ModuleState& state) {
         }
         argsV.push_back(arg);
     }
-    return state.builder->CreateCall(callee, argsV, "call_" + callName->identifier);
+
+    std::string twine = callee->getReturnType()->isVoidTy() ? "" : "call_" + callName->identifier;
+    return state.builder->CreateCall(callee,
+                                     argsV,
+                                     twine);
 }
 
 // statements
@@ -140,6 +146,11 @@ bool VarAST::codegen(ModuleState& state) {
 
 
 bool FuncAST::codegen(ModuleState& state) {
+    if (state.module->getFunction(funcName->identifier)) {
+        logError("cannot redefine function " + funcName->identifier);
+        return false;
+    }
+
     // Create prototype
     Type* returnType = type->getType(state);
     std::vector<Type*> argTypes;
@@ -154,11 +165,18 @@ bool FuncAST::codegen(ModuleState& state) {
         Arg->setName(signature[i].identifier->identifier);
         state.values[signature[i].identifier->identifier] = Arg;
     }
+    if (native) {
+        return true;
+    }
 
     // Function block
+    if (!block.has_value()) {
+        logError("no block given for non native function");
+        return false;
+    }
     BasicBlock* BB = BasicBlock::Create(*state.ctx, "entry", F);
     state.builder->SetInsertPoint(BB);
-    if (!block->codegen(state)) {
+    if (!block->get()->codegen(state)) {
         return false;
     }
     verifyFunction(*F);

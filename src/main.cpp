@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
         std::cout << "successfully compiled!" << std::endl;
         module.writeIR(args.outputFile, !args.outputLL);
     } else {
-        std::cout << "did not successfully compile :(";
+        std::cout << "did not successfully compile :(" << std::endl;
     }
     return 0;
 }

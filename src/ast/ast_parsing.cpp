@@ -251,12 +251,18 @@ std::unique_ptr<StatementAST> parseVarOrCall(Lexer& lexer) {
 }
 
 std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
+    bool native = false;
+    if (lexer.curToken.rawToken == KW_NATIVE) {
+        native = true;
+        lexer.consume();
+    }
     if (lexer.curToken.rawToken != KW_FUNC) {
         return logError("Expected func");
     }
     lexer.consume();
+
     if (lexer.curToken.type != TOK_TYPE) {
-        return logError("Expected type");
+        return logError("Expected function return type");
     }
     auto returnType = std::make_unique<TypeAST>(lexer.curToken.rawToken);
     lexer.consume();
@@ -290,36 +296,48 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
         }
     }
     lexer.consume();
-    if (auto block = parseBlock(lexer)) {
-        return std::make_unique<FuncAST>(std::move(returnType),
-                                         std::move(funcName),
-                                         std::move(signature),
-                                         std::move(block));
-    } else {
-        return nullptr;
+
+    std::optional<std::unique_ptr<BlockAST> > block;
+    if (!native) {
+        block = parseBlock(lexer);
+        if (!block) {
+            return nullptr;
+        }
     }
+    return std::make_unique<FuncAST>(std::move(returnType),
+                                     std::move(funcName),
+                                     std::move(signature),
+                                     std::move(block),
+                                     native);
 }
 
 std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
+    std::unique_ptr<StatementAST> statement;
+
     if (lexer.curToken.type == TOK_TYPE) {
-        return parseVarOrCall(lexer);
-    }
-
-    if (lexer.curToken.rawToken == KW_FUNC) {
-        return parseFunc(lexer);
+        statement = parseVarOrCall(lexer);
+    } else if (lexer.curToken.rawToken == KW_FUNC || lexer.curToken.rawToken == KW_NATIVE) {
+        statement = parseFunc(lexer);
     } else if (lexer.curToken.rawToken == KW_IF) {
-        return parseIf(lexer);
+        statement = parseIf(lexer);
     } else if (lexer.curToken.rawToken == KW_WHILE) {
-        return parseWhile(lexer);
+        statement = parseWhile(lexer);
     } else if (lexer.curToken.rawToken == KW_RETURN) {
-        return parseReturn(lexer);
+        statement = parseReturn(lexer);
+    } else if (lexer.curToken.type == TOK_IDENTIFIER) {
+        statement = parseVarOrCall(lexer);
+    } else {
+        return logError("Expected valid statement");
     }
 
-    if (lexer.curToken.type == TOK_IDENTIFIER) {
-        return parseVarOrCall(lexer);
+    if (!statement) {
+        return nullptr;
+    }
+    if (lexer.curToken.type != TOK_DELIMITER) {
+        return logError("Expected delimiter after statement");
     }
 
-    return logError("Expected valid statement");
+    return statement;
 }
 
 

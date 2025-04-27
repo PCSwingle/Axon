@@ -58,7 +58,12 @@ std::string FuncAST::toString() {
             result << ", ";
         }
     }
-    return "Func(" + type->toString() + " " + funcName->toString() + "(" + result.str() + ")) " + block->toString();
+    auto sig = "Func(" + type->toString() + " " + funcName->toString() + "(" + result.str() + "))";
+    if (native) {
+        return "native " + sig;
+    } else {
+        return sig + " " + block->get()->toString();
+    }
 }
 
 std::string IfAST::toString() {

@@ -161,17 +161,20 @@ class FuncAST : public StatementAST {
     std::unique_ptr<TypeAST> type;
     std::unique_ptr<IdentifierAST> funcName;
     std::vector<SigArg> signature;
-    std::unique_ptr<BlockAST> block;
+    std::optional<std::unique_ptr<BlockAST> > block;
+    bool native;
 
 public:
     explicit FuncAST(std::unique_ptr<TypeAST> type,
                      std::unique_ptr<IdentifierAST> funcName,
                      std::vector<SigArg>
                      signature,
-                     std::unique_ptr<BlockAST> block): type(std::move(type)),
-                                                       funcName(std::move(funcName)),
-                                                       signature(std::move(signature)),
-                                                       block(std::move(block)) {
+                     std::optional<std::unique_ptr<BlockAST> > block,
+                     bool native): type(std::move(type)),
+                                   funcName(std::move(funcName)),
+                                   signature(std::move(signature)),
+                                   block(std::move(block)),
+                                   native(native) {
     }
 
     std::string toString() override;

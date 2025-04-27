@@ -55,11 +55,13 @@ inline const std::unordered_set<std::string> UNOPS{
 };
 
 
+// types
 #define X_TYPE \
     TYPE(INT, "int") \
     TYPE(LONG, "long") \
     TYPE(DOUBLE, "double") \
-    TYPE(BOOL, "bool")
+    TYPE(BOOL, "bool") \
+    TYPE(VOID, "void")
 
 inline const std::unordered_set<std::string> TYPES{
 #define TYPE(NAME, STR) STR,
@@ -67,9 +69,10 @@ inline const std::unordered_set<std::string> TYPES{
 #undef TYPE
 };
 
+// values
 #define X_VALUE \
-VALUE(TRUE, "true") \
-VALUE(FALSE, "false")
+    VALUE(TRUE, "true") \
+    VALUE(FALSE, "false")
 
 inline const std::unordered_set<std::string> VALUES{
 #define VALUE(NAME, STR) STR,
@@ -77,14 +80,15 @@ inline const std::unordered_set<std::string> VALUES{
 #undef VALUE
 };
 
-
+// keywords
 #define X_KW \
-    KEYWORD(FUNC , "func") \
+    KEYWORD(FUNC, "func") \
     KEYWORD(IF, "if") \
     KEYWORD(ELIF, "elif") \
     KEYWORD(ELSE, "else") \
     KEYWORD(WHILE, "while") \
-    KEYWORD(RETURN, "return")
+    KEYWORD(RETURN, "return") \
+    KEYWORD(NATIVE, "native")
 
 #define KEYWORD(NAME, STR) const std::string KW_##NAME = STR;
 X_KW
@@ -95,6 +99,7 @@ X_TYPE
 #define VALUE(NAME, STR) const std::string KW_##NAME = STR;
 X_VALUE
 #undef VALUE
+
 inline const std::unordered_set<std::string> KEYWORDS{
 #define KEYWORD(NAME, STR) STR,
     X_KW

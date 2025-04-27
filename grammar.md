@@ -11,7 +11,7 @@
 <While> -> while (<Expr>) <Block>
 
 <Var> -> <Type>? <Identifier> [= | += | -= | ...] <Expr>
-<Func> -> func <Type> <Identifier>([<Type> <Identifier>,]*) <Block>
+<Func> -> native? func <Type> <Identifier>([<Type> <Identifier>,]*) <Block>?
 
 <Statement> -> <Var> | <Expr> | <Func> | <If> | <While> | return <Expr> ... (should blocks count as statements?)
 <Block> -> { <Statement>* }

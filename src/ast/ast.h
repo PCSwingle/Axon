@@ -10,6 +10,7 @@ namespace llvm {
     class Type;
 }
 
+class ModuleState;
 
 // abstracts
 

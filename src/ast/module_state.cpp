@@ -30,3 +30,12 @@ bool ModuleState::writeIR(const std::string& filename, bool bitcode) {
     out.close();
     return true;
 }
+
+AllocaInst* ModuleState::createAlloca(TypeAST* type, std::string& name) {
+    auto oldIP = builder->saveIP();
+    auto& entry = builder->GetInsertBlock()->getParent()->getEntryBlock();
+    builder->SetInsertPoint(&entry, entry.begin());
+    auto* newAlloca = builder->CreateAlloca(type->getType(*this), nullptr, name);
+    builder->restoreIP(oldIP);
+    return newAlloca;
+}

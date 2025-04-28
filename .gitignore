@@ -2,6 +2,9 @@
 cmake-build-debug
 test.ax
 c_test.c
+
 *.ll
 *.bc
 *.out
+*.s
+*.o

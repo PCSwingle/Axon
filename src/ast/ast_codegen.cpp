@@ -15,8 +15,12 @@ Type* TypeAST::getType(ModuleState& state) {
         return Type::getInt32Ty(*state.ctx);
     } else if (type == "long") {
         return Type::getInt64Ty(*state.ctx);
+    } else if (type == "float") {
+        return Type::getFloatTy(*state.ctx);
     } else if (type == "double") {
         return Type::getDoubleTy(*state.ctx);
+    } else if (type == "bool") {
+        return Type::getInt1Ty(*state.ctx);
     } else if (type == "void") {
         return Type::getVoidTy(*state.ctx);
     }
@@ -61,13 +65,72 @@ Value* ValueExprAST::codegenValue(ModuleState& state) {
 }
 
 Value* VariableExprAST::codegenValue(ModuleState& state) {
-    Value* value = state.values[varName->identifier];
-    if (!value) {
+    if (state.vars.find(varName->identifier) == state.vars.end()) {
         return logError("undefined variable " + varName->identifier);
     }
-    return value;
+    AllocaInst* varAlloca = state.vars[varName->identifier];
+    Value* val = state.builder->CreateLoad(varAlloca->getAllocatedType(), varAlloca, varName->identifier);
+    return val;
 }
 
+
+static std::unordered_map<std::string, Instruction::BinaryOps> ibinopMap{
+    {"+", Instruction::Add},
+    {"-", Instruction::Sub},
+    {"*", Instruction::Mul},
+    {"/", Instruction::SDiv},
+    {"%", Instruction::SRem},
+};
+static std::unordered_map<std::string, Instruction::BinaryOps> fbinopMap{
+    {"+", Instruction::FAdd},
+    {"-", Instruction::FSub},
+    {"*", Instruction::FMul},
+    {"/", Instruction::FDiv},
+    {"%", Instruction::FRem},
+};
+
+static std::unordered_map<std::string, CmpInst::Predicate> icmpMap{
+    {"==", CmpInst::ICMP_EQ},
+    {"!=", CmpInst::ICMP_NE},
+    {"<", CmpInst::ICMP_SLE},
+    {">", CmpInst::ICMP_SGT},
+    {"<=", CmpInst::ICMP_SLE},
+    {">=", CmpInst::ICMP_SGE}
+};
+static std::unordered_map<std::string, CmpInst::Predicate> fcmpMap{
+    {"==", CmpInst::FCMP_OEQ},
+    {"!=", CmpInst::FCMP_ONE},
+    {"<", CmpInst::FCMP_OLE},
+    {">", CmpInst::FCMP_OGT},
+    {"<=", CmpInst::FCMP_OLE},
+    {">=", CmpInst::FCMP_OGE}
+};
+
+static std::optional<Instruction::BinaryOps> getBinop(const std::string& binop, bool floating) {
+    if (floating) {
+        if (fbinopMap.find(binop) != fbinopMap.end()) {
+            return fbinopMap[binop];
+        }
+    } else {
+        if (ibinopMap.find(binop) != ibinopMap.end()) {
+            return ibinopMap[binop];
+        }
+    }
+    return std::optional<Instruction::BinaryOps>();
+}
+
+static std::optional<CmpInst::Predicate> getCmpop(const std::string& cmpop, bool floating) {
+    if (floating) {
+        if (fcmpMap.find(cmpop) != fcmpMap.end()) {
+            return fcmpMap[cmpop];
+        }
+    } else {
+        if (icmpMap.find(cmpop) != icmpMap.end()) {
+            return icmpMap[cmpop];
+        }
+    }
+    return std::optional<CmpInst::Predicate>();
+}
 
 Value* BinaryOpExprAST::codegenValue(ModuleState& state) {
     auto L = LHS->codegenValue(state);
@@ -76,20 +139,20 @@ Value* BinaryOpExprAST::codegenValue(ModuleState& state) {
         return nullptr;
     }
 
-    if (binOp == "+") {
-        return state.builder->CreateAdd(L, R, "add_binop");
-        return state.builder->CreateAdd(L, R, "add_binop");
-    } else if (binOp == "-") {
-        return state.builder->CreateSub(L, R, "sub_binop");
-    } else if (binOp == "*") {
-        return state.builder->CreateMul(L, R, "mul_binop");
-    } else if (binOp == "/") {
-        return state.builder->CreateSDiv(L, R, "div_binop");
-    } else if (binOp == "%") {
-        return state.builder->CreateSRem(L, R, "mod_binop");
+    if (L->getType() != R->getType()) {
+        return logError("binary expression between two values not the same type");
     }
+    bool floating = L->getType() == Type::getDoubleTy(*state.ctx) || L->getType() == Type::getFloatTy(*state.ctx);
 
-    return logError("binop " + binOp + " currently not supported");
+    std::optional<Instruction::BinaryOps> op = getBinop(binOp, floating);
+    std::optional<CmpInst::Predicate> cmpOp = getCmpop(binOp, floating);
+    if (op.has_value()) {
+        return state.builder->CreateBinOp(op.value(), L, R, binOp + "_binop");
+    } else if (cmpOp.has_value()) {
+        return state.builder->CreateCmp(cmpOp.value(), L, R, binOp + "_cmpop");
+    } else {
+        return logError("binop " + binOp + " currently not supported");
+    }
 }
 
 
@@ -140,8 +203,25 @@ Value* CallExprAST::codegenValue(ModuleState& state) {
 
 // statements
 bool VarAST::codegen(ModuleState& state) {
-    logError("variables not supported... yet...");
-    return false;
+    if (type.has_value() && !state.addVar(identifier->identifier, type->get())) {
+        return false;
+    }
+    if (state.vars.find(identifier->identifier) == state.vars.end()) {
+        logError("reference to undefined variable " + identifier->identifier);
+        return false;
+    }
+    auto val = expr->codegenValue(state);
+    if (!val) {
+        return false;
+    }
+
+    AllocaInst* varAlloca = state.vars[identifier->identifier];
+    if (varAlloca->getAllocatedType() != val->getType()) {
+        logError("wrong type assigned to variable");
+        return false;
+    }
+    state.builder->CreateStore(val, varAlloca);
+    return true;
 }
 
 
@@ -159,11 +239,9 @@ bool FuncAST::codegen(ModuleState& state) {
     }
     FunctionType* FT = FunctionType::get(returnType, argTypes, false);
     Function* F = Function::Create(FT, Function::ExternalLinkage, funcName->identifier, state.module.get());
-    state.values.clear();
     for (int i = 0; i < signature.size(); i++) {
-        auto Arg = F->getArg(i);
-        Arg->setName(signature[i].identifier->identifier);
-        state.values[signature[i].identifier->identifier] = Arg;
+        auto arg = F->getArg(i);
+        arg->setName(signature[i].identifier->identifier);
     }
     if (native) {
         return true;
@@ -174,33 +252,115 @@ bool FuncAST::codegen(ModuleState& state) {
         logError("no block given for non native function");
         return false;
     }
+    // todo: store current insert point
     BasicBlock* BB = BasicBlock::Create(*state.ctx, "entry", F);
     state.builder->SetInsertPoint(BB);
+
+    state.enterScope();
+    for (int i = 0; i < signature.size(); i++) {
+        if (!state.addVar(signature[i].identifier->identifier, signature[i].type.get())) {
+            return false;
+        }
+        auto* arg = F->getArg(i);
+        auto* varAlloca = state.vars[signature[i].identifier->identifier];
+        state.builder->CreateStore(arg, varAlloca);
+    }
     if (!block->get()->codegen(state)) {
         return false;
     }
+    state.exitScope();
+
     verifyFunction(*F);
     return true;
 }
 
 bool IfAST::codegen(ModuleState& state) {
-    logError("if not supported... yet...");
-    return false;
+    auto* val = expr->codegenValue(state);
+    if (!val) {
+        return false;
+    }
+    if (val->getType() != Type::getInt1Ty(*state.ctx)) {
+        logError("must use bool type in if statement");
+    }
+
+    Function* func = state.builder->GetInsertBlock()->getParent();
+    BasicBlock* thenBB = BasicBlock::Create(*state.ctx, "then");
+    BasicBlock* elseBB;
+    BasicBlock* mergeBB = BasicBlock::Create(*state.ctx, "postif");
+    if (elseBlock.has_value()) {
+        elseBB = BasicBlock::Create(*state.ctx, "else");
+    } else {
+        elseBB = mergeBB;
+    }
+    state.builder->CreateCondBr(val, thenBB, elseBB);
+
+    func->insert(func->end(), thenBB);
+    state.builder->SetInsertPoint(thenBB);
+    if (!block->codegen(state)) {
+        return false;
+    }
+    state.builder->CreateBr(mergeBB);
+
+    if (elseBlock.has_value()) {
+        func->insert(func->end(), elseBB);
+        state.builder->SetInsertPoint(elseBB);
+        if (!elseBlock.value()->codegen(state)) {
+            return false;
+        }
+        state.builder->CreateBr(mergeBB);
+    }
+
+    func->insert(func->end(), mergeBB);
+    state.builder->SetInsertPoint(mergeBB);
+
+    return true;
 }
 
 bool WhileAST::codegen(ModuleState& state) {
-    logError("while not supported... yet...");
-    return false;
+    Function* func = state.builder->GetInsertBlock()->getParent();
+    BasicBlock* condBB = BasicBlock::Create(*state.ctx, "cond");
+    BasicBlock* loopBB = BasicBlock::Create(*state.ctx, "loop");
+    BasicBlock* postBB = BasicBlock::Create(*state.ctx, "postloop");
+
+    func->insert(func->end(), condBB);
+    state.builder->CreateBr(condBB);
+    state.builder->SetInsertPoint(condBB);
+
+    Value* val = expr->codegenValue(state);
+    if (!val) {
+        return false;
+    }
+    state.builder->CreateCondBr(val, loopBB, postBB);
+
+    func->insert(func->end(), loopBB);
+    state.builder->SetInsertPoint(loopBB);
+    if (!block->codegen(state)) {
+        return false;
+    }
+    state.builder->CreateBr(condBB);
+
+    func->insert(func->end(), postBB);
+    state.builder->SetInsertPoint(postBB);
+    return true;
 }
 
 bool ReturnAST::codegen(ModuleState& state) {
+    auto returnType = state.builder->GetInsertBlock()->getParent()->getReturnType();
     if (returnExpr.has_value()) {
         Value* returnValue = returnExpr->get()->codegenValue(state);
         if (!returnValue) {
             return false;
         }
+        if (returnValue->getType() != returnType) {
+            logError("returned invalid type");
+            return false;
+        }
         state.builder->CreateRet(returnValue);
     } else {
+        if (!returnType->isVoidTy()) {
+            logError("returned invalid type");
+            return false;
+        }
         state.builder->CreateRetVoid();
     }
     return true;
@@ -209,10 +369,12 @@ bool ReturnAST::codegen(ModuleState& state) {
 
 // other
 bool BlockAST::codegen(ModuleState& state) {
+    state.enterScope();
     for (const auto& statement: statements) {
         if (!statement->codegen(state)) {
             return false;
         }
     }
+    state.exitScope();
     return true;
 }

@@ -48,6 +48,12 @@ static const std::unordered_map<std::string, int> BINOPS{
     {"||", 10}
 };
 
+static const std::unordered_map<char, std::string> ESCAPES{
+    {'"', "\""},
+    {'\'', "'"},
+    {'\\', "\\"}
+};
+
 inline const std::unordered_set<std::string> UNOPS{
     "~",
     "-",

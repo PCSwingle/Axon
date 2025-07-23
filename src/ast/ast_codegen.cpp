@@ -30,7 +30,10 @@ Type* TypeAST::getType(ModuleState& state) {
 
 // expr
 Value* ValueExprAST::codegenValue(ModuleState& state) {
-    if (rawValue == KW_TRUE) {
+    if (rawValue.front() == '\"' || rawValue.front() == '\'') {
+        auto strVal = rawValue.substr(1, rawValue.length() - 2);
+        return logError("string literals not supported yet");
+    } else if (rawValue == KW_TRUE) {
         return ConstantInt::getTrue(*state.ctx);
     } else if (rawValue == KW_FALSE) {
         return ConstantInt::getFalse(*state.ctx);
@@ -59,7 +62,7 @@ Value* ValueExprAST::codegenValue(ModuleState& state) {
             type = Type::getInt32Ty(*state.ctx);
             apVal = APInt(32, rawValue, 10);
         }
-        // todo: check what happens if number is too large
+        // todo: if number overflows raise error
         return ConstantInt::getIntegerValue(type, apVal);
     }
 }

@@ -3,6 +3,8 @@
 #include "debug_consts.h"
 #include "lexer.h"
 
+#include "logging.h"
+
 
 char Lexer::next() {
     index += 1;
@@ -41,7 +43,7 @@ Token Lexer::_consume() {
     }
 
     // identifiers / keywords
-    if (isalpha(cur)) {
+    if (isalpha(cur) || cur == '_') {
         std::string rawToken;
         while (isalnum(cur) || cur == '_') {
             rawToken += cur;
@@ -133,6 +135,27 @@ Token Lexer::_consume() {
             next();
             return Token(op, TOK_UNOP);
         }
+    }
+
+    // strings
+    if (cur == '\'' || cur == '"') {
+        std::string rawToken;
+        rawToken += cur;
+        auto endChar = cur;
+        next();
+        while (cur != endChar && cur != EOF) {
+            if (cur == '\\') {
+                next();
+                if (ESCAPES.find(cur) != ESCAPES.end()) {
+                    logWarning("Non escapeable character " + std::string(1, cur) + " escaped");
+                }
+            }
+            rawToken += cur;
+            next();
+        }
+        rawToken += cur;
+        next();
+        return Token(rawToken, TOK_VALUE);
     }
 
     auto rawToken = std::string(1, cur);

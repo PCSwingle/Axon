@@ -1,8 +1,6 @@
 #include <vector>
 
-#include "debug_consts.h"
 #include "lexer.h"
-
 #include "logging.h"
 
 
@@ -16,7 +14,7 @@ char Lexer::next() {
     return cur;
 }
 
-char Lexer::peek(int num) {
+char Lexer::peek_char(int num) {
     if (index + num >= text.length()) {
         return EOF;
     } else {
@@ -24,7 +22,24 @@ char Lexer::peek(int num) {
     }
 }
 
-Token Lexer::_consume() {
+Token Lexer::consume() {
+    token_index += 1;
+    if (token_index < tokens.size()) {
+        curToken = tokens[token_index];
+    }
+    return curToken;
+}
+
+Token Lexer::peek(int num) {
+    if (token_index + num < tokens.size()) {
+        return tokens[token_index + num];
+    } else {
+        return Token();
+    }
+}
+
+
+Token Lexer::process() {
     // whitespace
     while (isspace(cur) && cur != '\n') {
         next();
@@ -85,16 +100,16 @@ Token Lexer::_consume() {
         while (cur != '\n' && cur != EOF) {
             next();
         }
-        return _consume();
+        return process();
     }
-    if (cur == '/' && peek(1) == '*') {
+    if (cur == '/' && peek_char(1) == '*') {
         // prevent /*/ from being a full comment
         next();
         next();
-        while (!(cur == '*' && peek(1) == '/') && cur != EOF) {
+        while (!(cur == '*' && peek_char(1) == '/') && cur != EOF) {
             next();
         }
-        return _consume();
+        return process();
     }
 
     // operators
@@ -161,12 +176,4 @@ Token Lexer::_consume() {
     auto rawToken = std::string(1, cur);
     next();
     return Token(rawToken, TOK_UNKNOWN);
-}
-
-Token Lexer::consume() {
-    curToken = _consume();
-    if (DEBUG_LEXER_PRINT_TOKENS) {
-        std::cout << "Token: " << curToken.rawToken << " Type: " << curToken.type << std::endl;
-    }
-    return curToken;
 }

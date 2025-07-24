@@ -5,6 +5,9 @@
 #include <unordered_set>
 #include <utility>
 #include <iostream>
+#include <vector>
+
+#include "debug_consts.h"
 
 enum TokenType {
     TOK_IDENTIFIER,
@@ -124,6 +127,9 @@ struct Token {
 
     explicit Token(std::string rawToken, const TokenType type): rawToken(std::move(rawToken)), type(type) {
     }
+
+    explicit Token(): rawToken(std::string(1, EOF)), type(TOK_EOF) {
+    }
 };
 
 class Lexer {
@@ -131,20 +137,32 @@ class Lexer {
     std::string text;
     size_t index = -1;
 
+    std::vector<Token> tokens;
+    size_t token_index = -1;
 
     char next();
 
-    char peek(int num);
+    char peek_char(int num);
 
-    Token _consume();
+    Token process();
 
 public:
-    Token curToken = Token("", TOK_UNKNOWN);
+    Token curToken;
 
     explicit Lexer(std::string text): text(std::move(text)) {
         next();
+        Token token;
+        do {
+            token = process();
+            tokens.push_back(token);
+            if (DEBUG_LEXER_PRINT_TOKENS) {
+                std::cout << "Token: " << token.rawToken << " Type: " << token.type << std::endl;
+            }
+        } while (token.type != TOK_EOF);
         consume();
     }
 
     Token consume();
+
+    Token peek(int num);
 };

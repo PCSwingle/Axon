@@ -113,21 +113,7 @@ Token Lexer::process() {
     }
 
     // operators
-    std::vector<std::string> allOps;
-    allOps.reserve(BINOPS.size() + UNOPS.size());
-    for (const auto& [str, _]: BINOPS) {
-        allOps.push_back(str);
-    }
-    for (const auto& str: UNOPS) {
-        allOps.push_back(str);
-    }
-    std::sort(allOps.begin(),
-              allOps.end(),
-              [](const std::string& a, const std::string& b) {
-                  return a.length() > b.length();
-              });
-
-    for (const auto& op: allOps) {
+    for (const auto& op: ALLOPS) {
         auto length = op.length();
         if (index + length > text.length()) {
             continue;
@@ -135,20 +121,12 @@ Token Lexer::process() {
         if (text.substr(index, length) == op) {
             index += length - 1;
             next();
-            auto type = BINOPS.find(op) != BINOPS.end() ? TOK_BINOP : TOK_UNOP;
+            auto type = BINOPS.find(op) != BINOPS.end()
+                            ? TOK_BINOP
+                            : UNOPS.find(op) != UNOPS.end()
+                                  ? TOK_UNOP
+                                  : TOK_VAROP;
             return Token(op, type);
-        }
-    }
-
-    for (const auto& op: UNOPS) {
-        auto length = op.length();
-        if (index + length > text.length()) {
-            continue;
-        }
-        if (text.substr(index, length) == op) {
-            index += length - 1;
-            next();
-            return Token(op, TOK_UNOP);
         }
     }
 

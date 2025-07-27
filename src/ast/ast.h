@@ -246,13 +246,13 @@ class Lexer;
 
 std::unique_ptr<ExprAST> parseExpr(Lexer& lexer);
 
-std::unique_ptr<ExprAST> parseExprNoBinop(Lexer& lexer);
-
 std::unique_ptr<IfAST> parseIf(Lexer& lexer, bool onIf = true);
 
 std::unique_ptr<WhileAST> parseWhile(Lexer& lexer);
 
-std::unique_ptr<StatementAST> parseVarOrCall(Lexer& lexer);
+std::unique_ptr<VarAST> parseVar(Lexer& lexer);
+
+std::unique_ptr<CallExprAST> parseCall(Lexer& lexer);
 
 std::unique_ptr<FuncAST> parseFunc(Lexer& lexer);
 

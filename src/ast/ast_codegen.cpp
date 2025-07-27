@@ -92,6 +92,19 @@ static std::unordered_map<std::string, Instruction::BinaryOps> fbinopMap{
     {"%", Instruction::FRem},
 };
 
+static std::optional<Instruction::BinaryOps> getBinop(const std::string& binop, bool floating) {
+    if (floating) {
+        if (fbinopMap.find(binop) != fbinopMap.end()) {
+            return fbinopMap[binop];
+        }
+    } else {
+        if (ibinopMap.find(binop) != ibinopMap.end()) {
+            return ibinopMap[binop];
+        }
+    }
+    return std::optional<Instruction::BinaryOps>();
+}
+
 static std::unordered_map<std::string, CmpInst::Predicate> icmpMap{
     {"==", CmpInst::ICMP_EQ},
     {"!=", CmpInst::ICMP_NE},
@@ -108,19 +121,6 @@ static std::unordered_map<std::string, CmpInst::Predicate> fcmpMap{
     {"<=", CmpInst::FCMP_OLE},
     {">=", CmpInst::FCMP_OGE}
 };
-
-static std::optional<Instruction::BinaryOps> getBinop(const std::string& binop, bool floating) {
-    if (floating) {
-        if (fbinopMap.find(binop) != fbinopMap.end()) {
-            return fbinopMap[binop];
-        }
-    } else {
-        if (ibinopMap.find(binop) != ibinopMap.end()) {
-            return ibinopMap[binop];
-        }
-    }
-    return std::optional<Instruction::BinaryOps>();
-}
 
 static std::optional<CmpInst::Predicate> getCmpop(const std::string& cmpop, bool floating) {
     if (floating) {
@@ -206,15 +206,16 @@ Value* CallExprAST::codegenValue(ModuleState& state) {
 
 // statements
 bool VarAST::codegen(ModuleState& state) {
+    auto val = expr->codegenValue(state);
+    if (!val) {
+        return false;
+    }
+
     if (type.has_value() && !state.addVar(identifier->identifier, type->get())) {
         return false;
     }
     if (state.vars.find(identifier->identifier) == state.vars.end()) {
         logError("reference to undefined variable " + identifier->identifier);
-        return false;
-    }
-    auto val = expr->codegenValue(state);
-    if (!val) {
         return false;
     }
 

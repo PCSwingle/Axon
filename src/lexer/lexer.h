@@ -17,11 +17,12 @@ enum TokenType {
     TOK_EOF,
     TOK_BINOP,
     TOK_UNOP,
+    TOK_VAROP,
     TOK_DELIMITER,
     TOK_UNKNOWN,
 };
 
-static const std::unordered_map<std::string, int> BINOPS{
+inline const std::unordered_map<std::string, int> BINOPS{
     {"*", 100},
     {"/", 100},
     {"%", 100},
@@ -51,7 +52,7 @@ static const std::unordered_map<std::string, int> BINOPS{
     {"||", 10}
 };
 
-static const std::unordered_map<char, std::string> ESCAPES{
+inline const std::unordered_map<char, std::string> ESCAPES{
     {'"', "\""},
     {'\'', "'"},
     {'\\', "\\"}
@@ -62,6 +63,40 @@ inline const std::unordered_set<std::string> UNOPS{
     "-",
     "!",
 };
+
+inline const std::unordered_set<std::string> VAROPS{
+    "=",
+    "+=",
+    "-=",
+    "*=",
+    "/=",
+    "%=",
+    "|=",
+    "&=",
+    "^=",
+    "<<=",
+    ">>="
+};
+
+inline const std::vector<std::string> ALLOPS = []() {
+    std::vector<std::string> allOps;
+    allOps.reserve(BINOPS.size() + UNOPS.size() + VAROPS.size());
+    for (const auto& [str, _]: BINOPS) {
+        allOps.push_back(str);
+    }
+    for (const auto& str: UNOPS) {
+        allOps.push_back(str);
+    }
+    for (const auto& str: VAROPS) {
+        allOps.push_back(str);
+    }
+    std::sort(allOps.begin(),
+              allOps.end(),
+              [](const std::string& a, const std::string& b) {
+                  return a.length() > b.length();
+              });
+    return allOps;
+}();
 
 
 // types

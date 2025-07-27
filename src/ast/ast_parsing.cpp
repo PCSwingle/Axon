@@ -19,27 +19,11 @@ std::unique_ptr<ExprAST> parseExprNoBinop(Lexer& lexer) {
 
     // variables and calls
     if (lexer.curToken.type == TOK_IDENTIFIER) {
-        auto identifier = std::make_unique<IdentifierAST>(lexer.curToken.rawToken);
-        lexer.consume();
-        if (lexer.curToken.rawToken == "(") {
-            // TODO: somehow don't do call args in 2 spots
-            lexer.consume();
-            std::vector<std::unique_ptr<ExprAST> > args;
-            while (lexer.curToken.rawToken != ")") {
-                auto expr = parseExpr(lexer);
-                if (!expr) {
-                    return nullptr;
-                }
-                args.push_back(std::move(expr));
-                if (lexer.curToken.rawToken == ",") {
-                    lexer.consume();
-                } else if (lexer.curToken.rawToken != ")") {
-                    return logError("Expected ) for expression");
-                }
-            }
-            lexer.consume();
-            return std::make_unique<CallExprAST>(std::move(identifier), std::move(args));
+        if (lexer.peek(1).rawToken == "(") {
+            return parseCall(lexer);
         } else {
+            auto identifier = std::make_unique<IdentifierAST>(lexer.curToken.rawToken);
+            lexer.consume();
             return std::make_unique<VariableExprAST>(std::move(identifier));
         }
     }
@@ -49,7 +33,7 @@ std::unique_ptr<ExprAST> parseExprNoBinop(Lexer& lexer) {
         lexer.consume();
         if (auto expr = parseExprNoBinop(lexer)) {
             if (lexer.curToken.rawToken != ")") {
-                return logError("Expected )");
+                return logError("Expected closing ) for parenthetical expression");
             }
             lexer.consume();
             return expr;
@@ -204,7 +188,7 @@ std::unique_ptr<ReturnAST> parseReturn(Lexer& lexer) {
     }
 }
 
-std::unique_ptr<StatementAST> parseVarOrCall(Lexer& lexer) {
+std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
     std::optional<std::unique_ptr<TypeAST> > type;
     if (lexer.curToken.type == TOK_TYPE) {
         type = std::make_unique<TypeAST>(lexer.curToken.rawToken);
@@ -212,45 +196,56 @@ std::unique_ptr<StatementAST> parseVarOrCall(Lexer& lexer) {
     }
 
     if (lexer.curToken.type != TOK_IDENTIFIER) {
+        return logError("Expected var assignment");
+    }
+    auto identifier = std::make_unique<IdentifierAST>(lexer.curToken.rawToken);
+    lexer.consume();
+
+    if (lexer.curToken.type != TOK_VAROP) {
+        return logError("Expected variable assignment operator");
+    }
+    auto varOp = lexer.curToken.rawToken;
+    lexer.consume();
+
+    auto expr = parseExpr(lexer);
+    if (!expr) {
+        return nullptr;
+    }
+    if (varOp != "=") {
+        auto binOp = varOp.substr(0, varOp.size() - 1);
+        auto variableExpr = std::make_unique<VariableExprAST>(std::make_unique<IdentifierAST>(identifier->identifier));
+        expr = std::make_unique<BinaryOpExprAST>(std::move(variableExpr), std::move(expr), binOp);
+    }
+    return std::make_unique<VarAST>(std::move(type), std::move(identifier), std::move(expr));
+}
+
+std::unique_ptr<CallExprAST> parseCall(Lexer& lexer) {
+    if (lexer.curToken.type != TOK_IDENTIFIER) {
         return logError("Expected variable or function call identifier");
     }
     auto identifier = std::make_unique<IdentifierAST>(lexer.curToken.rawToken);
     lexer.consume();
 
-    if (lexer.curToken.rawToken == "(") {
-        if (type.has_value()) {
-            return logError("Expected var assigment");
-        }
-        lexer.consume();
-        std::vector<std::unique_ptr<ExprAST> > args;
-        while (lexer.curToken.rawToken != ")") {
-            auto expr = parseExpr(lexer);
-            if (!expr) {
-                return nullptr;
-            }
-            args.push_back(std::move(expr));
-            if (lexer.curToken.rawToken == ",") {
-                lexer.consume();
-            } else if (lexer.curToken.rawToken != ")") {
-                return logError("Expected )");
-            }
-        }
-        lexer.consume();
-        return std::make_unique<CallExprAST>(std::move(identifier), std::move(args));
-    } else if (lexer.curToken.rawToken == "=") {
-        lexer.consume();
+    if (lexer.curToken.rawToken != "(") {
+        return logError("Expected opening ( for function call");
+    }
+    lexer.consume();
+
+    std::vector<std::unique_ptr<ExprAST> > args;
+    while (lexer.curToken.rawToken != ")") {
         auto expr = parseExpr(lexer);
         if (!expr) {
             return nullptr;
         }
-        return std::make_unique<VarAST>(std::move(type), std::move(identifier), std::move(expr));
-    } else {
-        if (!type.has_value()) {
-            return logError("Expected call or var assignment");
-        } else {
-            return logError("Expected var assigment");
+        args.push_back(std::move(expr));
+        if (lexer.curToken.rawToken == ",") {
+            lexer.consume();
+        } else if (lexer.curToken.rawToken != ")") {
+            return logError("Expected closing ) for function call");
         }
     }
+    lexer.consume();
+    return std::make_unique<CallExprAST>(std::move(identifier), std::move(args));
 }
 
 std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
@@ -325,7 +320,7 @@ std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
     std::unique_ptr<StatementAST> statement;
 
     if (lexer.curToken.type == TOK_TYPE) {
-        statement = parseVarOrCall(lexer);
+        statement = parseVar(lexer);
     } else if (lexer.curToken.rawToken == KW_FUNC || lexer.curToken.rawToken == KW_NATIVE) {
         statement = parseFunc(lexer);
     } else if (lexer.curToken.rawToken == KW_IF) {
@@ -335,7 +330,11 @@ std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
     } else if (lexer.curToken.rawToken == KW_RETURN) {
         statement = parseReturn(lexer);
     } else if (lexer.curToken.type == TOK_IDENTIFIER) {
-        statement = parseVarOrCall(lexer);
+        if (lexer.peek(1).rawToken == "(") {
+            statement = parseCall(lexer);
+        } else {
+            statement = parseVar(lexer);
+        }
     } else {
         return logError("Expected valid statement");
     }

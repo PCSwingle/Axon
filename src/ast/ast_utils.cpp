@@ -8,16 +8,12 @@ std::string TypeAST::toString() {
     return "Type(" + type + ")";
 }
 
-std::string IdentifierAST::toString() {
-    return "Identifier(" + identifier + ")";
-}
-
 std::string ValueExprAST::toString() {
     return "Value(" + rawValue + ")";
 }
 
 std::string VariableExprAST::toString() {
-    return "Variable(" + varName->toString() + ")";
+    return "Variable(" + varName + ")";
 }
 
 
@@ -37,17 +33,17 @@ std::string CallExprAST::toString() {
             result << ", ";
         }
     }
-    return "Call(" + callName->toString() + "(" + result.str() + "))";
+    return "Call(" + callName + "(" + result.str() + "))";
 }
 
 std::string VarAST::toString() {
-    return "Var(" + (type.has_value() ? type.value()->toString() + " " : "") + identifier->toString() + " = " + expr
+    return "Var(" + (type.has_value() ? type.value()->toString() + " " : "") + identifier + " = " + expr
            ->toString()
            + ")";
 }
 
 std::string SigArg::toString() {
-    return type->toString() + " " + identifier->toString();
+    return type->toString() + " " + identifier;
 }
 
 std::string FuncAST::toString() {
@@ -58,7 +54,7 @@ std::string FuncAST::toString() {
             result << ", ";
         }
     }
-    auto sig = "Func(" + type->toString() + " " + funcName->toString() + "(" + result.str() + "))";
+    auto sig = "Func(" + type->toString() + " " + funcName + "(" + result.str() + "))";
     if (native) {
         return "native " + sig;
     } else {

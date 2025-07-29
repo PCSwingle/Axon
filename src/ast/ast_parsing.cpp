@@ -22,7 +22,7 @@ std::unique_ptr<ExprAST> parseExprNoBinop(Lexer& lexer) {
         if (lexer.peek(1).rawToken == "(") {
             return parseCall(lexer);
         } else {
-            auto identifier = std::make_unique<IdentifierAST>(lexer.curToken.rawToken);
+            auto identifier = lexer.curToken.rawToken;
             lexer.consume();
             return std::make_unique<VariableExprAST>(std::move(identifier));
         }
@@ -198,7 +198,7 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
     if (lexer.curToken.type != TOK_IDENTIFIER) {
         return logError("Expected var assignment");
     }
-    auto identifier = std::make_unique<IdentifierAST>(lexer.curToken.rawToken);
+    auto identifier = lexer.curToken.rawToken;
     lexer.consume();
 
     if (lexer.curToken.type != TOK_VAROP) {
@@ -213,17 +213,17 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
     }
     if (varOp != "=") {
         auto binOp = varOp.substr(0, varOp.size() - 1);
-        auto variableExpr = std::make_unique<VariableExprAST>(std::make_unique<IdentifierAST>(identifier->identifier));
+        auto variableExpr = std::make_unique<VariableExprAST>(identifier);
         expr = std::make_unique<BinaryOpExprAST>(std::move(variableExpr), std::move(expr), binOp);
     }
-    return std::make_unique<VarAST>(std::move(type), std::move(identifier), std::move(expr));
+    return std::make_unique<VarAST>(std::move(type), identifier, std::move(expr));
 }
 
 std::unique_ptr<CallExprAST> parseCall(Lexer& lexer) {
     if (lexer.curToken.type != TOK_IDENTIFIER) {
         return logError("Expected variable or function call identifier");
     }
-    auto identifier = std::make_unique<IdentifierAST>(lexer.curToken.rawToken);
+    auto identifier = lexer.curToken.rawToken;
     lexer.consume();
 
     if (lexer.curToken.rawToken != "(") {
@@ -245,7 +245,7 @@ std::unique_ptr<CallExprAST> parseCall(Lexer& lexer) {
         }
     }
     lexer.consume();
-    return std::make_unique<CallExprAST>(std::move(identifier), std::move(args));
+    return std::make_unique<CallExprAST>(identifier, std::move(args));
 }
 
 std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
@@ -262,7 +262,7 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
     if (!lexer.curToken.type == TOK_IDENTIFIER) {
         return logError("Expected function name identifier");
     }
-    auto funcName = std::make_unique<IdentifierAST>(lexer.curToken.rawToken);
+    auto funcName = lexer.curToken.rawToken;
     lexer.consume();
     if (lexer.curToken.rawToken != "(") {
         return logError("Expected (");
@@ -279,9 +279,9 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
         if (!lexer.curToken.type == TOK_IDENTIFIER) {
             return logError("Expected function argument identifier");
         }
-        auto identifier = std::make_unique<IdentifierAST>(lexer.curToken.rawToken);
+        auto identifier = lexer.curToken.rawToken;
         lexer.consume();
-        signature.push_back({std::move(type), std::move(identifier)});
+        signature.push_back({std::move(type), identifier});
         if (lexer.curToken.rawToken == ",") {
             lexer.consume();
         } else if (lexer.curToken.rawToken != ")") {
@@ -310,7 +310,7 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
         }
     }
     return std::make_unique<FuncAST>(std::move(returnType),
-                                     std::move(funcName),
+                                     funcName,
                                      std::move(signature),
                                      std::move(block),
                                      native);

@@ -130,7 +130,7 @@ Token Lexer::process() {
         }
     }
 
-    // strings
+    // string literals
     if (cur == '\'' || cur == '"') {
         std::string rawToken;
         rawToken += cur;

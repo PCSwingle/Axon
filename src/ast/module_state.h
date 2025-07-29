@@ -13,7 +13,7 @@ class ModuleState {
     AllocaInst* createAlloca(TypeAST* type, std::string& name);
 
 public:
-    // TOOD: should context be static?
+    // TODO: should context be static?
     std::unique_ptr<LLVMContext> ctx;
     std::unique_ptr<IRBuilder<> > builder;
     std::unique_ptr<Module> module;

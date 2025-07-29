@@ -68,11 +68,11 @@ Value* ValueExprAST::codegenValue(ModuleState& state) {
 }
 
 Value* VariableExprAST::codegenValue(ModuleState& state) {
-    if (state.vars.find(varName->identifier) == state.vars.end()) {
-        return logError("undefined variable " + varName->identifier);
+    if (state.vars.find(varName) == state.vars.end()) {
+        return logError("undefined variable " + varName);
     }
-    AllocaInst* varAlloca = state.vars[varName->identifier];
-    Value* val = state.builder->CreateLoad(varAlloca->getAllocatedType(), varAlloca, varName->identifier);
+    AllocaInst* varAlloca = state.vars[varName];
+    Value* val = state.builder->CreateLoad(varAlloca->getAllocatedType(), varAlloca, varName);
     return val;
 }
 
@@ -174,9 +174,9 @@ Value* UnaryOpExprAST::codegenValue(ModuleState& state) {
 
 
 Value* CallExprAST::codegenValue(ModuleState& state) {
-    Function* callee = state.module->getFunction(callName->identifier);
+    Function* callee = state.module->getFunction(callName);
     if (!callee) {
-        return logError("function " + callName->identifier + " not defined");
+        return logError("function " + callName + " not defined");
     }
     if (callee->arg_size() != args.size()) {
         return logError(
@@ -198,7 +198,7 @@ Value* CallExprAST::codegenValue(ModuleState& state) {
         argsV.push_back(arg);
     }
 
-    std::string twine = callee->getReturnType()->isVoidTy() ? "" : "call_" + callName->identifier;
+    std::string twine = callee->getReturnType()->isVoidTy() ? "" : "call_" + callName;
     return state.builder->CreateCall(callee,
                                      argsV,
                                      twine);
@@ -211,15 +211,15 @@ bool VarAST::codegen(ModuleState& state) {
         return false;
     }
 
-    if (type.has_value() && !state.addVar(identifier->identifier, type->get())) {
+    if (type.has_value() && !state.addVar(identifier, type->get())) {
         return false;
     }
-    if (state.vars.find(identifier->identifier) == state.vars.end()) {
-        logError("reference to undefined variable " + identifier->identifier);
+    if (state.vars.find(identifier) == state.vars.end()) {
+        logError("reference to undefined variable " + identifier);
         return false;
     }
 
-    AllocaInst* varAlloca = state.vars[identifier->identifier];
+    AllocaInst* varAlloca = state.vars[identifier];
     if (varAlloca->getAllocatedType() != val->getType()) {
         logError("wrong type assigned to variable");
         return false;
@@ -230,8 +230,8 @@ bool VarAST::codegen(ModuleState& state) {
 
 
 bool FuncAST::codegen(ModuleState& state) {
-    if (state.module->getFunction(funcName->identifier)) {
-        logError("cannot redefine function " + funcName->identifier);
+    if (state.module->getFunction(funcName)) {
+        logError("cannot redefine function " + funcName);
         return false;
     }
 
@@ -242,10 +242,10 @@ bool FuncAST::codegen(ModuleState& state) {
         argTypes.push_back(sig.type->getType(state));
     }
     FunctionType* FT = FunctionType::get(returnType, argTypes, false);
-    Function* F = Function::Create(FT, Function::ExternalLinkage, funcName->identifier, state.module.get());
+    Function* F = Function::Create(FT, Function::ExternalLinkage, funcName, state.module.get());
     for (int i = 0; i < signature.size(); i++) {
         auto arg = F->getArg(i);
-        arg->setName(signature[i].identifier->identifier);
+        arg->setName(signature[i].identifier);
     }
     if (native) {
         return true;
@@ -262,11 +262,11 @@ bool FuncAST::codegen(ModuleState& state) {
 
     state.enterScope();
     for (int i = 0; i < signature.size(); i++) {
-        if (!state.addVar(signature[i].identifier->identifier, signature[i].type.get())) {
+        if (!state.addVar(signature[i].identifier, signature[i].type.get())) {
             return false;
         }
         auto* arg = F->getArg(i);
-        auto* varAlloca = state.vars[signature[i].identifier->identifier];
+        auto* varAlloca = state.vars[signature[i].identifier];
         state.builder->CreateStore(arg, varAlloca);
     }
     if (!block->get()->codegen(state)) {

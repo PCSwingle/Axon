@@ -51,15 +51,6 @@ struct TypeAST {
     llvm::Type* getType(ModuleState& state);
 };
 
-struct IdentifierAST {
-    std::string identifier;
-
-    explicit IdentifierAST(std::string identifier): identifier(std::move(identifier)) {
-    }
-
-    std::string toString();
-};
-
 // expr
 class ValueExprAST : public ExprAST {
     std::string rawValue;
@@ -74,10 +65,10 @@ public:
 };
 
 class VariableExprAST : public ExprAST {
-    std::unique_ptr<IdentifierAST> varName;
+    std::string varName;
 
 public:
-    explicit VariableExprAST(std::unique_ptr<IdentifierAST> varName): varName(std::move(varName)) {
+    explicit VariableExprAST(std::string varName): varName(std::move(varName)) {
     }
 
     std::string toString() override;
@@ -116,11 +107,11 @@ public:
 };
 
 class CallExprAST : public ExprAST {
-    std::unique_ptr<IdentifierAST> callName;
+    std::string callName;
     std::vector<std::unique_ptr<ExprAST> > args;
 
 public:
-    explicit CallExprAST(std::unique_ptr<IdentifierAST> callName,
+    explicit CallExprAST(std::string callName,
                          std::vector<std::unique_ptr<ExprAST> > args): callName(std::move(callName)),
                                                                        args(std::move(args)) {
     }
@@ -133,12 +124,12 @@ public:
 // statements
 class VarAST : public StatementAST {
     std::optional<std::unique_ptr<TypeAST> > type;
-    std::unique_ptr<IdentifierAST> identifier;
+    std::string identifier;
     std::unique_ptr<ExprAST> expr;
 
 public:
     explicit VarAST(std::optional<std::unique_ptr<TypeAST> > type,
-                    std::unique_ptr<IdentifierAST> identifier,
+                    std::string identifier,
                     std::unique_ptr<ExprAST> expr): type(std::move(type)),
                                                     identifier(std::move(identifier)),
                                                     expr(std::move(expr)) {
@@ -153,21 +144,21 @@ class BlockAST;
 
 struct SigArg {
     std::unique_ptr<TypeAST> type;
-    std::unique_ptr<IdentifierAST> identifier;
+    std::string identifier;
 
     std::string toString();
 };
 
 class FuncAST : public StatementAST {
     std::unique_ptr<TypeAST> type;
-    std::unique_ptr<IdentifierAST> funcName;
+    std::string funcName;
     std::vector<SigArg> signature;
     std::optional<std::unique_ptr<BlockAST> > block;
     bool native;
 
 public:
     explicit FuncAST(std::unique_ptr<TypeAST> type,
-                     std::unique_ptr<IdentifierAST> funcName,
+                     std::string funcName,
                      std::vector<SigArg>
                      signature,
                      std::optional<std::unique_ptr<BlockAST> > block,

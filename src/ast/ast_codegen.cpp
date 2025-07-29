@@ -68,10 +68,10 @@ Value* ValueExprAST::codegenValue(ModuleState& state) {
 }
 
 Value* VariableExprAST::codegenValue(ModuleState& state) {
-    if (state.vars.find(varName) == state.vars.end()) {
+    AllocaInst* varAlloca = state.getVar(varName);
+    if (!varAlloca) {
         return logError("undefined variable " + varName);
     }
-    AllocaInst* varAlloca = state.vars[varName];
     Value* val = state.builder->CreateLoad(varAlloca->getAllocatedType(), varAlloca, varName);
     return val;
 }
@@ -174,7 +174,7 @@ Value* UnaryOpExprAST::codegenValue(ModuleState& state) {
 
 
 Value* CallExprAST::codegenValue(ModuleState& state) {
-    Function* callee = state.module->getFunction(callName);
+    Function* callee = state.getFunction(callName);
     if (!callee) {
         return logError("function " + callName + " not defined");
     }
@@ -211,15 +211,16 @@ bool VarAST::codegen(ModuleState& state) {
         return false;
     }
 
-    if (type.has_value() && !state.addVar(identifier, type->get())) {
+    if (type.has_value() && !state.registerVar(identifier, type->get())) {
+        logError("duplicate identifier definition " + identifier);
         return false;
     }
-    if (state.vars.find(identifier) == state.vars.end()) {
+    AllocaInst* varAlloca = state.getVar(identifier);
+    if (!varAlloca) {
         logError("reference to undefined variable " + identifier);
         return false;
     }
 
-    AllocaInst* varAlloca = state.vars[identifier];
     if (varAlloca->getAllocatedType() != val->getType()) {
         logError("wrong type assigned to variable");
         return false;
@@ -230,21 +231,21 @@ bool VarAST::codegen(ModuleState& state) {
 
 
 bool FuncAST::codegen(ModuleState& state) {
-    if (state.module->getFunction(funcName)) {
-        logError("cannot redefine function " + funcName);
-        return false;
-    }
-
     // Create prototype
     Type* returnType = type->getType(state);
     std::vector<Type*> argTypes;
     for (const auto& sig: signature) {
         argTypes.push_back(sig.type->getType(state));
     }
-    FunctionType* FT = FunctionType::get(returnType, argTypes, false);
-    Function* F = Function::Create(FT, Function::ExternalLinkage, funcName, state.module.get());
+    FunctionType* type = FunctionType::get(returnType, argTypes, false);
+    Function* function = state.registerFunction(funcName, type);
+    if (!function) {
+        logError("duplicate identifier definition " + funcName);
+        return false;
+    }
+
     for (int i = 0; i < signature.size(); i++) {
-        auto arg = F->getArg(i);
+        auto arg = function->getArg(i);
         arg->setName(signature[i].identifier);
     }
     if (native) {
@@ -256,17 +257,18 @@ bool FuncAST::codegen(ModuleState& state) {
         logError("no block given for non native function");
         return false;
     }
-    // todo: store current insert point
-    BasicBlock* BB = BasicBlock::Create(*state.ctx, "entry", F);
+    // TODO: store current insert point
+    BasicBlock* BB = BasicBlock::Create(*state.ctx, "entry", function);
     state.builder->SetInsertPoint(BB);
 
     state.enterScope();
     for (int i = 0; i < signature.size(); i++) {
-        if (!state.addVar(signature[i].identifier, signature[i].type.get())) {
+        auto* varAlloca = state.registerVar(signature[i].identifier, signature[i].type.get());
+        if (!varAlloca) {
+            logError("duplicate identifier definition " + signature[i].identifier);
             return false;
         }
-        auto* arg = F->getArg(i);
-        auto* varAlloca = state.vars[signature[i].identifier];
+        auto* arg = function->getArg(i);
         state.builder->CreateStore(arg, varAlloca);
     }
     if (!block->get()->codegen(state)) {
@@ -274,8 +276,7 @@ bool FuncAST::codegen(ModuleState& state) {
     }
     state.exitScope();
 
-    verifyFunction(*F);
-    return true;
+    return !verifyFunction(*function);
 }
 
 bool IfAST::codegen(ModuleState& state) {

@@ -62,6 +62,18 @@ std::string FuncAST::toString() {
     }
 }
 
+std::string StructAST::toString() {
+    std::ostringstream result;
+    for (size_t i = 0; i < fields.size(); i++) {
+        result << std::get<0>(fields[i]) << ": " << std::get<1>(fields[i])->toString();
+        if (i != fields.size() - 1) {
+            result << ", ";
+        }
+    }
+    return "Struct " + structName + " {" + structName + ", " + result.str() + "}";
+}
+
+
 std::string IfAST::toString() {
     return "If(" + expr->toString() + ") " + block->toString();
 }

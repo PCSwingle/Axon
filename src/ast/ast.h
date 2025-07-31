@@ -174,6 +174,22 @@ public:
     bool codegen(ModuleState& state) override;
 };
 
+class StructAST : public StatementAST {
+    std::string structName;
+    std::vector<std::tuple<std::string, std::unique_ptr<TypeAST> > > fields;
+
+public:
+    explicit StructAST(std::string structName,
+                       std::vector<std::tuple<std::string, std::unique_ptr<TypeAST> > > fields): structName(
+            std::move(structName)),
+        fields(std::move(fields)) {
+    }
+
+    std::string toString() override;
+
+    bool codegen(ModuleState& state) override;
+};
+
 class IfAST : public StatementAST {
     std::unique_ptr<ExprAST> expr;
     std::unique_ptr<BlockAST> block;
@@ -246,6 +262,8 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer);
 std::unique_ptr<CallExprAST> parseCall(Lexer& lexer);
 
 std::unique_ptr<FuncAST> parseFunc(Lexer& lexer);
+
+std::unique_ptr<StructAST> parseStruct(Lexer& lexer);
 
 std::unique_ptr<StatementAST> parseStatement(Lexer& lexer);
 

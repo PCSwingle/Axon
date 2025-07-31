@@ -24,7 +24,18 @@ struct FunctionIdentifier {
     }
 };
 
-typedef std::variant<VariableIdentifier, FunctionIdentifier> Identifier;
+struct StructIdentifier {
+    StructType* structType;
+    std::vector<std::tuple<std::string, std::unique_ptr<TypeAST> > > fields;
+
+    explicit StructIdentifier(StructType* structType,
+                              std::vector<std::tuple<std::string, std::unique_ptr<TypeAST> > >
+                              fields): structType(structType),
+                                       fields(move(fields)) {
+    }
+};
+
+typedef std::variant<VariableIdentifier, FunctionIdentifier, StructIdentifier> Identifier;
 
 class ModuleState {
     AllocaInst* createAlloca(TypeAST* type, std::string& name);
@@ -67,6 +78,7 @@ public:
         return true;
     }
 
+    // TODO: return the identifier instance instead
     AllocaInst* registerVar(std::string& identifier, TypeAST* type) {
         auto* varAlloca = createAlloca(type, identifier);
         if (!registerIdentifier(identifier, VariableIdentifier(varAlloca))) {
@@ -105,5 +117,31 @@ public:
             return nullptr;
         }
         return function->function;
+    }
+
+    StructType* registerStruct(std::string& identifier,
+                               std::vector<std::tuple<std::string, std::unique_ptr<TypeAST> > > fields) {
+        auto* elements = new std::vector<Type*>();
+        for (auto [fieldName, fieldType]: fields) {
+            elements->push_back(fieldType->getType(*this));
+        }
+        auto* structType = StructType::get(*ctx, elements);
+
+        if (!registerIdentifier(identifier, StructIdentifier(structType, fields))) {
+            return nullptr;
+        }
+        return structType;
+    }
+
+    StructType* getStruct(std::string& identifier) {
+        if (identifiers.find(identifier) == identifiers.end()) {
+            return nullptr;
+        }
+        auto& val = identifiers.at(identifier);
+        auto* structIdentifier = std::get_if<StructIdentifier>(&val);
+        if (!structIdentifier) {
+            return nullptr;
+        }
+        return structIdentifier->structType;
     }
 };

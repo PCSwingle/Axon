@@ -132,7 +132,8 @@ inline const std::unordered_set<std::string> VALUES{
     KEYWORD(ELSE, "else") \
     KEYWORD(WHILE, "while") \
     KEYWORD(RETURN, "return") \
-    KEYWORD(NATIVE, "native")
+    KEYWORD(NATIVE, "native") \
+    KEYWORD(STRUCT, "struct")
 
 #define KEYWORD(NAME, STR) const std::string KW_##NAME = STR;
 X_KW

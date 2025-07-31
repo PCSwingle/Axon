@@ -316,6 +316,44 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
                                      native);
 }
 
+std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {
+    if (lexer.curToken.rawToken != KW_STRUCT) {
+        return logError("expected struct keyword, got " + lexer.curToken.rawToken);
+    }
+    lexer.consume();
+    if (lexer.curToken.type != TOK_IDENTIFIER) {
+        return logError("expected struct identifier, got " + lexer.curToken.rawToken);
+    }
+    auto structIdentifier = lexer.curToken.rawToken;
+    lexer.consume();
+    if (lexer.curToken.rawToken != "{") {
+        return logError("expected opening { for struct, got " + lexer.curToken.rawToken);
+    }
+    lexer.consume();
+
+    std::vector<std::tuple<std::string, std::unique_ptr<TypeAST> > > fields;
+    while (lexer.curToken.rawToken != "}") {
+        if (lexer.curToken.type == TOK_DELIMITER) {
+            lexer.consume();
+            continue;
+        }
+        if (lexer.curToken.type != TOK_TYPE) {
+            return logError("expected struct field type, got " + lexer.curToken.rawToken);
+        }
+        auto type = std::make_unique<TypeAST>(lexer.curToken.rawToken);
+        lexer.consume();
+        if (lexer.curToken.type != TOK_IDENTIFIER) {
+            return logError("expected struct field identifier, got " + lexer.curToken.rawToken);
+        }
+        auto identifier = lexer.curToken.rawToken;
+        fields.push_back(std::make_tuple(identifier, type));
+        lexer.consume();
+    }
+    lexer.consume();
+
+    return std::make_unique<StructAST>(structIdentifier, fields);
+}
+
 std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
     std::unique_ptr<StatementAST> statement;
 
@@ -323,6 +361,8 @@ std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
         statement = parseVar(lexer);
     } else if (lexer.curToken.rawToken == KW_FUNC || lexer.curToken.rawToken == KW_NATIVE) {
         statement = parseFunc(lexer);
+    } else if (lexer.curToken.rawToken == KW_STRUCT) {
+        statement = parseStruct(lexer);
     } else if (lexer.curToken.rawToken == KW_IF) {
         statement = parseIf(lexer);
     } else if (lexer.curToken.rawToken == KW_WHILE) {

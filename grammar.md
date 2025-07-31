@@ -1,8 +1,10 @@
 ```
-<Type> -> int | long | ...
+<Delimiter> -> ; | \n
+<Type> -> int | long | <Identifier> | ...
 <Identifier> -> [a-zA-Z][a-zA-Z0-9_]*
 <BinaryOp> -> + | - | ...
 <UnaryOp> -> - | ! | ... # worth pointing out `-` can be both unary and binary
+<VarOp> -> = | += | -= | ...
 
 <Call> -> <Identifier>([<Expr>,]*)
 <Expr> -> <Identifier> | <Value> | <Call> | <Expr> <BinaryOp> <Expr> | <UnaryOp> <Expr> | ( <Expr> )
@@ -10,10 +12,12 @@
 <If> -> if (<Expr>) <Block> [elif (<Expr>) <Block>]* [else <Block>]?
 <While> -> while (<Expr>) <Block>
 
-<Var> -> <Type>? <Identifier> [= | += | -= | ...] <Expr>
+<Var> -> <Type>? <Identifier> <VarOp> <Expr>
 <Func> -> native? func <Identifier>([<Type> <Identifier>,]*): <Type> <Block>?
 
-<Statement> -> <Var> | <Expr> | <Func> | <If> | <While> | return <Expr> ... (should blocks count as statements?)
+<Struct> -> struct <Identifier> { [<Type> <Identifier> <Delimiter>]*
+
+<Statement> -> [<Var> | <Expr> | <Func> | <If> | <While> | <Struct> | return <Expr> | ...] <Delimiter> (should blocks count as statements?)
 <Block> -> { <Statement>* }
 
 <TopLevel> -> <Block> (but without {})

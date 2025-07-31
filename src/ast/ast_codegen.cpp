@@ -23,6 +23,9 @@ Type* TypeAST::getType(ModuleState& state) {
         return Type::getInt1Ty(*state.ctx);
     } else if (type == "void") {
         return Type::getVoidTy(*state.ctx);
+    } else if (state.getStruct(type)) {
+        // TODO: this will have to change a little to allow self and pre referencing
+        return PointerType::getUnqual(*state.ctx);
     }
 
     return logError("type " + type + " currently not supported");
@@ -190,6 +193,7 @@ Value* CallExprAST::codegenValue(ModuleState& state) {
         if (!arg) {
             return nullptr;
         }
+        // TODO: validate pointer types
         if (callee->getArg(i)->getType() != arg->getType()) {
             return logError(
                 "expected type " + typeToString(callee->getArg(i)->getType()) + ", got type " + typeToString(
@@ -220,12 +224,21 @@ bool VarAST::codegen(ModuleState& state) {
         logError("reference to undefined variable " + identifier);
         return false;
     }
-
+    // TODO: validate pointer types
     if (varAlloca->getAllocatedType() != val->getType()) {
         logError("wrong type assigned to variable");
         return false;
     }
     state.builder->CreateStore(val, varAlloca);
+    return true;
+}
+
+bool StructAST::codegen(ModuleState& state) {
+    StructType* structType = state.registerStruct(structName, fields);
+    if (!structType) {
+        logError("duplicate identifier definition " + structName);
+        return false;
+    }
     return true;
 }
 
@@ -356,6 +369,7 @@ bool ReturnAST::codegen(ModuleState& state) {
         if (!returnValue) {
             return false;
         }
+        // TODO: validate pointer types
         if (returnValue->getType() != returnType) {
             logError("returned invalid type");
             return false;
@@ -370,7 +384,6 @@ bool ReturnAST::codegen(ModuleState& state) {
     }
     return true;
 }
-
 
 // other
 bool BlockAST::codegen(ModuleState& state) {

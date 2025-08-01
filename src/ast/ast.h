@@ -121,7 +121,24 @@ public:
     llvm::Value* codegenValue(ModuleState& state) override;
 };
 
+class ConstructorExprAST : public ExprAST {
+    std::string structName;
+    std::unordered_map<std::string, std::unique_ptr<ExprAST> > values;
+
+public:
+    explicit ConstructorExprAST(std::string structName,
+                                std::unordered_map<std::string, std::unique_ptr<ExprAST> >
+                                values): structName(std::move(structName)), values(std::move(values)) {
+    }
+
+    std::string toString() override;
+
+    llvm::Value* codegenValue(ModuleState& state) override;
+};
+
 // statements
+
+
 class VarAST : public StatementAST {
     std::optional<std::unique_ptr<TypeAST> > type;
     std::string identifier;
@@ -260,6 +277,8 @@ std::unique_ptr<WhileAST> parseWhile(Lexer& lexer);
 std::unique_ptr<VarAST> parseVar(Lexer& lexer);
 
 std::unique_ptr<CallExprAST> parseCall(Lexer& lexer);
+
+std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer);
 
 std::unique_ptr<FuncAST> parseFunc(Lexer& lexer);
 

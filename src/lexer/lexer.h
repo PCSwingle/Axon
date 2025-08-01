@@ -90,11 +90,10 @@ inline const std::vector<std::string> ALLOPS = []() {
     for (const auto& str: VAROPS) {
         allOps.push_back(str);
     }
-    std::sort(allOps.begin(),
-              allOps.end(),
-              [](const std::string& a, const std::string& b) {
-                  return a.length() > b.length();
-              });
+    std::ranges::sort(allOps,
+                      [](const std::string& a, const std::string& b) {
+                          return a.length() > b.length();
+                      });
     return allOps;
 }();
 

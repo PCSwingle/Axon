@@ -1,3 +1,5 @@
+#include <ranges>
+
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Verifier.h>
@@ -100,11 +102,11 @@ static std::unordered_map<std::string, Instruction::BinaryOps> fbinopMap{
 
 static std::optional<Instruction::BinaryOps> getBinop(const std::string& binop, bool floating) {
     if (floating) {
-        if (fbinopMap.find(binop) != fbinopMap.end()) {
+        if (fbinopMap.contains(binop)) {
             return fbinopMap[binop];
         }
     } else {
-        if (ibinopMap.find(binop) != ibinopMap.end()) {
+        if (ibinopMap.contains(binop)) {
             return ibinopMap[binop];
         }
     }
@@ -130,11 +132,11 @@ static std::unordered_map<std::string, CmpInst::Predicate> fcmpMap{
 
 static std::optional<CmpInst::Predicate> getCmpop(const std::string& cmpop, bool floating) {
     if (floating) {
-        if (fcmpMap.find(cmpop) != fcmpMap.end()) {
+        if (fcmpMap.contains(cmpop)) {
             return fcmpMap[cmpop];
         }
     } else {
-        if (icmpMap.find(cmpop) != icmpMap.end()) {
+        if (icmpMap.contains(cmpop)) {
             return icmpMap[cmpop];
         }
     }
@@ -148,6 +150,7 @@ Value* BinaryOpExprAST::codegenValue(ModuleState& state) {
         return nullptr;
     }
 
+    // TODO: do type validation here
     if (L->getType() != R->getType()) {
         return logError("binary expression between two values not the same type");
     }
@@ -211,6 +214,50 @@ Value* CallExprAST::codegenValue(ModuleState& state) {
                                      argsV,
                                      twine);
 }
+
+Value* ConstructorExprAST::codegenValue(ModuleState& state) {
+    auto* structIdentifier = state.getStruct(structName);
+    if (!structIdentifier) {
+        return logError("attempted to call constructor for undefined struct " + structName);
+    }
+
+    // todo: figure out wtf this is????
+    Type* ITy = Type::getInt32Ty(*state.ctx);
+    // todo: free :)
+    // todo: check if failed
+    auto* structPointer = state.builder->CreateMalloc(ITy,
+                                                      structIdentifier->structType,
+                                                      ConstantExpr::getSizeOf(structIdentifier->structType),
+                                                      nullptr,
+                                                      nullptr,
+                                                      structName + "_malloc"
+    );
+    for (auto&& [i, field]: std::views::enumerate(structIdentifier->fields)) {
+        auto& [fieldName, fieldType] = field;
+        if (!values.contains(fieldName)) {
+            return logError("constructor for struct " + structName + " missing field " + fieldName);
+        }
+        // TODO: validate pointer types
+        auto fieldValue = values.at(fieldName)->codegenValue(state);
+        if (!fieldValue) {
+            return nullptr;
+        }
+        if (fieldType->getType(state) != fieldValue->getType()) {
+            return logError("invalid type for field " + fieldName);
+        }
+        auto fieldIndices = std::vector<Value*>{
+            ConstantInt::get(*state.ctx, APInt(32, 0)),
+            ConstantInt::get(*state.ctx, APInt(32, i))
+        };
+        auto fieldPointer = state.builder->CreateGEP(structIdentifier->structType,
+                                                     structPointer,
+                                                     fieldIndices,
+                                                     structName + "_" + fieldName);
+        state.builder->CreateStore(fieldValue, fieldPointer);
+    }
+    return structPointer;
+}
+
 
 // statements
 bool VarAST::codegen(ModuleState& state) {

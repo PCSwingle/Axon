@@ -7,7 +7,7 @@
 
 #include "ast.h"
 
-std::unique_ptr<ExprAST> parseExprNoBinop(Lexer& lexer) {
+std::unique_ptr<ExprAST> _parseExprNoBinop(Lexer& lexer) {
     // doesn't check for binops; use parseExpr
 
     // values
@@ -31,7 +31,7 @@ std::unique_ptr<ExprAST> parseExprNoBinop(Lexer& lexer) {
     // parentheses
     if (lexer.curToken.rawToken == "(") {
         lexer.consume();
-        if (auto expr = parseExprNoBinop(lexer)) {
+        if (auto expr = _parseExprNoBinop(lexer)) {
             if (lexer.curToken.rawToken != ")") {
                 return logError("Expected closing ) for parenthetical expression");
             }
@@ -42,8 +42,13 @@ std::unique_ptr<ExprAST> parseExprNoBinop(Lexer& lexer) {
         }
     }
 
+    // constructor
+    if (lexer.curToken.rawToken == "~") {
+        return parseConstructor(lexer);
+    }
+
     // unary ops
-    // we have a special case for - because it's a binop and a unop
+    // special case for - because it's a binop and a unop
     if (lexer.curToken.type == TOK_UNOP || lexer.curToken.rawToken == "-") {
         auto unOp = lexer.curToken.rawToken;
         lexer.consume();
@@ -60,7 +65,7 @@ std::unique_ptr<ExprAST> parseExprNoBinop(Lexer& lexer) {
 std::unique_ptr<ExprAST> parseExpr(Lexer& lexer) {
     // Parses an expression _with_ binop checking
 
-    auto firstExpr = parseExprNoBinop(lexer);
+    auto firstExpr = _parseExprNoBinop(lexer);
     if (!firstExpr) {
         return nullptr;
     }
@@ -72,7 +77,7 @@ std::unique_ptr<ExprAST> parseExpr(Lexer& lexer) {
         auto op = lexer.curToken.rawToken;
         lexer.consume();
 
-        auto expr = parseExprNoBinop(lexer);
+        auto expr = _parseExprNoBinop(lexer);
         if (!expr) {
             return nullptr;
         }
@@ -249,6 +254,61 @@ std::unique_ptr<CallExprAST> parseCall(Lexer& lexer) {
     return std::make_unique<CallExprAST>(identifier, std::move(args));
 }
 
+std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer) {
+    if (lexer.curToken.rawToken != "~") {
+        return logError("expected ~ for constructor, got " + lexer.curToken.rawToken);
+    }
+    lexer.consume();
+
+    if (lexer.curToken.type != TOK_IDENTIFIER) {
+        return logError("expected struct name for constructor, got " + lexer.curToken.rawToken);
+    }
+    auto structName = lexer.curToken.rawToken;
+    lexer.consume();
+
+    if (lexer.curToken.rawToken != "{") {
+        return logError("expected opening { for constructor, got " + lexer.curToken.rawToken);
+    }
+    lexer.consume();
+
+    auto values = std::unordered_map<std::string, std::unique_ptr<ExprAST> >();
+    while (lexer.curToken.rawToken != "}") {
+        // TODO: don't allow bare semicolons?
+        if (lexer.curToken.type == TOK_DELIMITER) {
+            lexer.consume();
+            continue;
+        }
+        if (lexer.curToken.type != TOK_IDENTIFIER) {
+            return logError("expected constructor field name, got " + lexer.curToken.rawToken);
+        }
+        auto valueName = lexer.curToken.rawToken;
+        if (values.contains(valueName)) {
+            return logError("found duplicate field name " + valueName + " in constructor");
+        }
+        lexer.consume();
+
+        if (lexer.curToken.rawToken != ":") {
+            return logError("expected : after field name in constructor, got " + lexer.curToken.rawToken);
+        }
+        lexer.consume();
+
+        auto valueExpr = parseExpr(lexer);
+        if (!valueExpr) {
+            return nullptr;
+        }
+        values.insert_or_assign(valueName, std::move(valueExpr));
+
+        if (lexer.curToken.rawToken == ",") {
+            lexer.consume();
+        } else if (lexer.curToken.rawToken != "}") {
+            return logError("Expected closing } for constructor, got " + lexer.curToken.rawToken);
+        }
+    }
+    lexer.consume();
+
+    return std::make_unique<ConstructorExprAST>(structName, std::move(values));
+}
+
 std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
     bool native = false;
     if (lexer.curToken.rawToken == KW_NATIVE) {
@@ -334,6 +394,7 @@ std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {
 
     std::vector<std::tuple<std::string, std::unique_ptr<TypeAST> > > fields;
     while (lexer.curToken.rawToken != "}") {
+        // TODO: don't allow bare semicolons?
         if (lexer.curToken.type == TOK_DELIMITER) {
             lexer.consume();
             continue;
@@ -358,9 +419,7 @@ std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {
 std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
     std::unique_ptr<StatementAST> statement;
 
-    if (lexer.curToken.type == TOK_TYPE) {
-        statement = parseVar(lexer);
-    } else if (lexer.curToken.rawToken == KW_FUNC || lexer.curToken.rawToken == KW_NATIVE) {
+    if (lexer.curToken.rawToken == KW_FUNC || lexer.curToken.rawToken == KW_NATIVE) {
         statement = parseFunc(lexer);
     } else if (lexer.curToken.rawToken == KW_STRUCT) {
         statement = parseStruct(lexer);
@@ -370,20 +429,20 @@ std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
         statement = parseWhile(lexer);
     } else if (lexer.curToken.rawToken == KW_RETURN) {
         statement = parseReturn(lexer);
-    } else if (lexer.curToken.type == TOK_IDENTIFIER) {
-        if (lexer.peek(1).rawToken == "(") {
-            statement = parseCall(lexer);
-        } else {
-            statement = parseVar(lexer);
-        }
+    } else if (lexer.curToken.type == TOK_TYPE ||
+               (lexer.curToken.type == TOK_IDENTIFIER &&
+                lexer.peek(1).type == TOK_IDENTIFIER) ||
+               (lexer.curToken.type == TOK_IDENTIFIER &&
+                lexer.peek(1).type == TOK_VAROP)) {
+        statement = parseVar(lexer);
     } else {
-        return logError("Expected valid statement");
+        statement = parseExpr(lexer);
     }
 
     if (!statement) {
         return nullptr;
     } else if (lexer.curToken.type != TOK_DELIMITER) {
-        return logError("Expected delimiter after statement");
+        return logError("Expected delimiter after statement, got " + lexer.curToken.rawToken);
     }
 
     return statement;
@@ -401,6 +460,7 @@ std::unique_ptr<BlockAST> parseBlock(Lexer& lexer, bool topLevel) {
     std::vector<std::unique_ptr<StatementAST> > statements;
     auto expected = topLevel ? std::string(1, EOF) : "}";
     while (lexer.curToken.rawToken != expected) {
+        // TODO: don't allow bare semicolons?
         if (lexer.curToken.type == TOK_DELIMITER) {
             lexer.consume();
             continue;

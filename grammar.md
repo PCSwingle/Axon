@@ -7,7 +7,8 @@
 <VarOp> -> = | += | -= | ...
 
 <Call> -> <Identifier>([<Expr>,]*)
-<Expr> -> <Identifier> | <Value> | <Call> | <Expr> <BinaryOp> <Expr> | <UnaryOp> <Expr> | ( <Expr> )
+<Constructor> -> ~<Identifier> { [<Identifier>: <Expr>,]* }
+<Expr> -> <Identifier> | <Value> | <Call> | <Constructor> | <Expr> <BinaryOp> <Expr> | <UnaryOp> <Expr> | ( <Expr> )
 
 <If> -> if (<Expr>) <Block> [elif (<Expr>) <Block>]* [else <Block>]?
 <While> -> while (<Expr>) <Block>

@@ -53,7 +53,7 @@ void ModuleState::exitScope() {
 }
 
 bool ModuleState::registerIdentifier(const std::string& identifier, std::unique_ptr<Identifier> val) {
-    if (identifiers.find(identifier) != identifiers.end()) {
+    if (identifiers.contains(identifier)) {
         return false;
     }
     identifiers.insert_or_assign(identifier, std::move(val));
@@ -63,11 +63,11 @@ bool ModuleState::registerIdentifier(const std::string& identifier, std::unique_
 
 bool ModuleState::registerVar(std::string& identifier, TypeAST* type) {
     auto* varAlloca = createAlloca(type, identifier);
-    return registerIdentifier(identifier, std::make_unique<Identifier>(VariableIdentifier(varAlloca)));
+    return registerIdentifier(identifier, std::make_unique<Identifier>(VariableIdentifier(varAlloca, type)));
 }
 
 VariableIdentifier* ModuleState::getVar(std::string& identifier) {
-    if (identifiers.find(identifier) == identifiers.end()) {
+    if (!identifiers.contains(identifier)) {
         return nullptr;
     }
     auto& val = identifiers.at(identifier);
@@ -84,7 +84,7 @@ bool ModuleState::registerFunction(std::string& identifier, FunctionType* type) 
 }
 
 FunctionIdentifier* ModuleState::getFunction(std::string& identifier) {
-    if (identifiers.find(identifier) == identifiers.end()) {
+    if (!identifiers.contains(identifier)) {
         return nullptr;
     }
     auto& val = identifiers.at(identifier);
@@ -106,7 +106,7 @@ bool ModuleState::registerStruct(std::string& identifier,
 }
 
 StructIdentifier* ModuleState::getStruct(std::string& identifier) {
-    if (identifiers.find(identifier) == identifiers.end()) {
+    if (!identifiers.contains(identifier)) {
         return nullptr;
     }
     auto& val = identifiers.at(identifier);

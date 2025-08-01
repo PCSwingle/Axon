@@ -14,7 +14,7 @@ struct VariableIdentifier {
     AllocaInst* varAlloca;
     TypeAST* type;
 
-    explicit VariableIdentifier(AllocaInst* varAlloca): varAlloca(varAlloca) {
+    explicit VariableIdentifier(AllocaInst* varAlloca, TypeAST* type): varAlloca(varAlloca), type(type) {
     }
 };
 

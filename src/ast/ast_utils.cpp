@@ -36,6 +36,18 @@ std::string CallExprAST::toString() {
     return "Call(" + callName + "(" + result.str() + "))";
 }
 
+std::string ConstructorExprAST::toString() {
+    std::ostringstream result;
+    for (auto& [fieldName, fieldValue]: values) {
+        result << fieldName << ": " << fieldValue->toString() << ", ";
+    }
+    auto s = result.str();
+    s.pop_back();
+    s.pop_back();
+    return "~" + structName + " { " + s + "}";
+}
+
+
 std::string VarAST::toString() {
     return "Var(" + (type.has_value() ? type.value()->toString() + " " : "") + identifier + " = " + expr
            ->toString()

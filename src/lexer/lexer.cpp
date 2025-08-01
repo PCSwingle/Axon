@@ -46,6 +46,7 @@ Token Lexer::process() {
     }
 
     // token delimiters (; and newline)
+    // TODO: newline should be treated differently from ;
     if (cur == ';' || cur == '\n') {
         std::string rawToken{1, cur};
         next();
@@ -65,11 +66,11 @@ Token Lexer::process() {
             next();
         }
         TokenType type;
-        if (TYPES.find(rawToken) != TYPES.end()) {
+        if (TYPES.contains(rawToken)) {
             type = TOK_TYPE;
-        } else if (VALUES.find(rawToken) != VALUES.end()) {
+        } else if (VALUES.contains(rawToken)) {
             type = TOK_VALUE;
-        } else if (KEYWORDS.find(rawToken) != KEYWORDS.end()) {
+        } else if (KEYWORDS.contains(rawToken)) {
             type = TOK_KEYWORD;
         } else {
             type = TOK_IDENTIFIER;
@@ -121,9 +122,9 @@ Token Lexer::process() {
         if (text.substr(index, length) == op) {
             index += length - 1;
             next();
-            auto type = BINOPS.find(op) != BINOPS.end()
+            auto type = BINOPS.contains(op)
                             ? TOK_BINOP
-                            : UNOPS.find(op) != UNOPS.end()
+                            : UNOPS.contains(op)
                                   ? TOK_UNOP
                                   : TOK_VAROP;
             return Token(op, type);
@@ -139,7 +140,7 @@ Token Lexer::process() {
         while (cur != endChar && cur != EOF) {
             if (cur == '\\') {
                 next();
-                if (ESCAPES.find(cur) != ESCAPES.end()) {
+                if (ESCAPES.contains(cur)) {
                     logWarning("Non escapeable character " + std::string(1, cur) + " escaped");
                 }
             }

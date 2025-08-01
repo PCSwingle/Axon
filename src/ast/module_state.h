@@ -12,6 +12,7 @@ struct TypeAST;
 
 struct VariableIdentifier {
     AllocaInst* varAlloca;
+    TypeAST* type;
 
     explicit VariableIdentifier(AllocaInst* varAlloca): varAlloca(varAlloca) {
     }
@@ -26,10 +27,10 @@ struct FunctionIdentifier {
 
 struct StructIdentifier {
     StructType* structType;
-    std::vector<std::tuple<std::string, std::unique_ptr<TypeAST> > > fields;
+    std::vector<std::tuple<std::string, TypeAST*> > fields;
 
     explicit StructIdentifier(StructType* structType,
-                              std::vector<std::tuple<std::string, std::unique_ptr<TypeAST> > >
+                              std::vector<std::tuple<std::string, TypeAST*> >
                               fields): structType(structType),
                                        fields(move(fields)) {
     }
@@ -45,7 +46,7 @@ public:
     std::unique_ptr<LLVMContext> ctx;
     std::unique_ptr<IRBuilder<> > builder;
     std::unique_ptr<Module> module;
-    std::unordered_map<std::string, Identifier> identifiers;
+    std::unordered_map<std::string, std::unique_ptr<Identifier> > identifiers;
 
     std::vector<std::vector<std::string> > scopeStack;
 
@@ -62,18 +63,18 @@ public:
 
     void exitScope();
 
-    bool registerIdentifier(const std::string& identifier, Identifier val);
+    bool registerIdentifier(const std::string& identifier, std::unique_ptr<Identifier> val);
 
-    AllocaInst* registerVar(std::string& identifier, TypeAST* type);
+    bool registerVar(std::string& identifier, TypeAST* type);
 
-    AllocaInst* getVar(std::string& identifier);
+    VariableIdentifier* getVar(std::string& identifier);
 
-    Function* registerFunction(std::string& identifier, FunctionType* type);
+    bool registerFunction(std::string& identifier, FunctionType* type);
 
-    Function* getFunction(std::string& identifier);
+    FunctionIdentifier* getFunction(std::string& identifier);
 
-    StructType* registerStruct(std::string& identifier,
-                               std::vector<std::tuple<std::string, std::unique_ptr<TypeAST> > > fields);
+    bool registerStruct(std::string& identifier,
+                        std::vector<std::tuple<std::string, TypeAST*> >& fields);
 
-    StructType* getStruct(std::string& identifier);
+    StructIdentifier* getStruct(std::string& identifier);
 };

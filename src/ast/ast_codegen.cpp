@@ -71,11 +71,14 @@ Value* ValueExprAST::codegenValue(ModuleState& state) {
 }
 
 Value* VariableExprAST::codegenValue(ModuleState& state) {
-    AllocaInst* varAlloca = state.getVar(varName);
-    if (!varAlloca) {
+    VariableIdentifier* varIdentifier = state.getVar(varName);
+    if (!varIdentifier) {
         return logError("undefined variable " + varName);
     }
-    Value* val = state.builder->CreateLoad(varAlloca->getAllocatedType(), varAlloca, varName);
+    auto* varAlloca = varIdentifier->varAlloca;
+    Value* val = state.builder->CreateLoad(varAlloca->getAllocatedType(),
+                                           varAlloca,
+                                           varName);
     return val;
 }
 
@@ -177,10 +180,11 @@ Value* UnaryOpExprAST::codegenValue(ModuleState& state) {
 
 
 Value* CallExprAST::codegenValue(ModuleState& state) {
-    Function* callee = state.getFunction(callName);
-    if (!callee) {
+    auto* funcIdentifier = state.getFunction(callName);
+    if (!funcIdentifier) {
         return logError("function " + callName + " not defined");
     }
+    auto* callee = funcIdentifier->function;
     if (callee->arg_size() != args.size()) {
         return logError(
             "expected " + std::to_string(callee->arg_size()) + " arguments, got " + std::to_string(args.size()) +
@@ -219,14 +223,17 @@ bool VarAST::codegen(ModuleState& state) {
         logError("duplicate identifier definition " + identifier);
         return false;
     }
-    AllocaInst* varAlloca = state.getVar(identifier);
-    if (!varAlloca) {
+    auto* varIdentifier = state.getVar(identifier);
+    if (!varIdentifier) {
         logError("reference to undefined variable " + identifier);
         return false;
     }
+    auto* varAlloca = varIdentifier->varAlloca;
     // TODO: validate pointer types
     if (varAlloca->getAllocatedType() != val->getType()) {
-        logError("wrong type assigned to variable");
+        logError(
+            "wrong type assigned to variable, expected " + typeToString(varAlloca->getAllocatedType()) + ", got " +
+            typeToString(val->getType()));
         return false;
     }
     state.builder->CreateStore(val, varAlloca);
@@ -234,8 +241,11 @@ bool VarAST::codegen(ModuleState& state) {
 }
 
 bool StructAST::codegen(ModuleState& state) {
-    StructType* structType = state.registerStruct(structName, std::move(fields));
-    if (!structType) {
+    auto nonUniqueFields = std::vector<std::tuple<std::string, TypeAST*> >();
+    for (auto& [fieldName, fieldType]: fields) {
+        nonUniqueFields.push_back(std::make_tuple(fieldName, fieldType.get()));
+    }
+    if (!state.registerStruct(structName, nonUniqueFields)) {
         logError("duplicate identifier definition " + structName);
         return false;
     }
@@ -251,11 +261,12 @@ bool FuncAST::codegen(ModuleState& state) {
         argTypes.push_back(sig.type->getType(state));
     }
     FunctionType* type = FunctionType::get(returnType, argTypes, false);
-    Function* function = state.registerFunction(funcName, type);
-    if (!function) {
+    if (!state.registerFunction(funcName, type)) {
         logError("duplicate identifier definition " + funcName);
         return false;
     }
+    auto* funcIdentifier = state.getFunction(funcName);
+    auto* function = funcIdentifier->function;
 
     for (int i = 0; i < signature.size(); i++) {
         auto arg = function->getArg(i);
@@ -276,11 +287,12 @@ bool FuncAST::codegen(ModuleState& state) {
 
     state.enterScope();
     for (int i = 0; i < signature.size(); i++) {
-        auto* varAlloca = state.registerVar(signature[i].identifier, signature[i].type.get());
-        if (!varAlloca) {
+        if (!state.registerVar(signature[i].identifier, signature[i].type.get())) {
             logError("duplicate identifier definition " + signature[i].identifier);
             return false;
         }
+        auto* varIdentifier = state.getVar(signature[i].identifier);
+        auto* varAlloca = varIdentifier->varAlloca;
         auto* arg = function->getArg(i);
         state.builder->CreateStore(arg, varAlloca);
     }

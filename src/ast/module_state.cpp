@@ -52,7 +52,7 @@ void ModuleState::exitScope() {
     scopeStack.pop_back();
 }
 
-bool ModuleState::registerIdentifier(const std::string& identifier, Identifier val) {
+bool ModuleState::registerIdentifier(const std::string& identifier, std::unique_ptr<Identifier> val) {
     if (identifiers.find(identifier) != identifiers.end()) {
         return false;
     }
@@ -61,69 +61,58 @@ bool ModuleState::registerIdentifier(const std::string& identifier, Identifier v
     return true;
 }
 
-// TODO: return the identifier instance instead
-AllocaInst* ModuleState::registerVar(std::string& identifier, TypeAST* type) {
+bool ModuleState::registerVar(std::string& identifier, TypeAST* type) {
     auto* varAlloca = createAlloca(type, identifier);
-    if (!registerIdentifier(identifier, VariableIdentifier(varAlloca))) {
+    return registerIdentifier(identifier, std::make_unique<Identifier>(VariableIdentifier(varAlloca)));
+}
+
+VariableIdentifier* ModuleState::getVar(std::string& identifier) {
+    if (identifiers.find(identifier) == identifiers.end()) {
+        return nullptr;
+    }
+    auto& val = identifiers.at(identifier);
+    auto* varAlloca = std::get_if<VariableIdentifier>(val.get());
+    if (!varAlloca) {
         return nullptr;
     }
     return varAlloca;
 }
 
-AllocaInst* ModuleState::getVar(std::string& identifier) {
+bool ModuleState::registerFunction(std::string& identifier, FunctionType* type) {
+    auto* function = Function::Create(type, Function::ExternalLinkage, identifier, module.get());
+    return registerIdentifier(identifier, std::make_unique<Identifier>(FunctionIdentifier(function)));
+}
+
+FunctionIdentifier* ModuleState::getFunction(std::string& identifier) {
     if (identifiers.find(identifier) == identifiers.end()) {
         return nullptr;
     }
     auto& val = identifiers.at(identifier);
-    auto* varAlloca = std::get_if<VariableIdentifier>(&val);
-    if (!varAlloca) {
-        return nullptr;
-    }
-    return varAlloca->varAlloca;
-}
-
-Function* ModuleState::registerFunction(std::string& identifier, FunctionType* type) {
-    auto* function = Function::Create(type, Function::ExternalLinkage, identifier, module.get());
-    if (!registerIdentifier(identifier, FunctionIdentifier(function))) {
+    auto* function = std::get_if<FunctionIdentifier>(val.get());
+    if (!function) {
         return nullptr;
     }
     return function;
 }
 
-Function* ModuleState::getFunction(std::string& identifier) {
-    if (identifiers.find(identifier) == identifiers.end()) {
-        return nullptr;
-    }
-    auto& val = identifiers.at(identifier);
-    auto* function = std::get_if<FunctionIdentifier>(&val);
-    if (!function) {
-        return nullptr;
-    }
-    return function->function;
-}
-
-StructType* ModuleState::registerStruct(std::string& identifier,
-                                        std::vector<std::tuple<std::string, std::unique_ptr<TypeAST> > > fields) {
-    auto* elements = new std::vector<Type*>();
+bool ModuleState::registerStruct(std::string& identifier,
+                                 std::vector<std::tuple<std::string, TypeAST*> >& fields) {
+    auto elements = std::vector<Type*>();
     for (auto& [fieldName, fieldType]: fields) {
-        elements->push_back(fieldType->getType(*this));
+        elements.push_back(fieldType->getType(*this));
     }
     auto* structType = StructType::get(*ctx, elements);
-
-    if (!registerIdentifier(identifier, StructIdentifier(structType, std::move(fields)))) {
-        return nullptr;
-    }
-    return structType;
+    return registerIdentifier(identifier, std::make_unique<Identifier>(StructIdentifier(structType, fields)));
 }
 
-StructType* ModuleState::getStruct(std::string& identifier) {
+StructIdentifier* ModuleState::getStruct(std::string& identifier) {
     if (identifiers.find(identifier) == identifiers.end()) {
         return nullptr;
     }
     auto& val = identifiers.at(identifier);
-    auto* structIdentifier = std::get_if<StructIdentifier>(&val);
+    auto* structIdentifier = std::get_if<StructIdentifier>(val.get());
     if (!structIdentifier) {
         return nullptr;
     }
-    return structIdentifier->structType;
+    return structIdentifier;
 }

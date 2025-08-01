@@ -190,7 +190,8 @@ std::unique_ptr<ReturnAST> parseReturn(Lexer& lexer) {
 
 std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
     std::optional<std::unique_ptr<TypeAST> > type;
-    if (lexer.curToken.type == TOK_TYPE) {
+    if (lexer.curToken.type == TOK_TYPE || (lexer.curToken.type == TOK_IDENTIFIER && lexer.peek(1).type ==
+                                            TOK_IDENTIFIER)) {
         type = std::make_unique<TypeAST>(lexer.curToken.rawToken);
         lexer.consume();
     }
@@ -202,7 +203,7 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
     lexer.consume();
 
     if (lexer.curToken.type != TOK_VAROP) {
-        return logError("Expected variable assignment operator");
+        return logError("Expected variable assignment operator, got " + lexer.curToken.rawToken);
     }
     auto varOp = lexer.curToken.rawToken;
     lexer.consume();
@@ -271,7 +272,7 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
 
     std::vector<SigArg> signature;
     while (lexer.curToken.rawToken != ")") {
-        if (lexer.curToken.type != TOK_TYPE) {
+        if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
             return logError("Expected type");
         }
         auto type = std::make_unique<TypeAST>(lexer.curToken.rawToken);
@@ -293,7 +294,7 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
     std::unique_ptr<TypeAST> returnType;
     if (lexer.curToken.rawToken == ":") {
         lexer.consume();
-        if (lexer.curToken.type != TOK_TYPE) {
+        if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
             return logError("Expected function return type");
         }
         returnType = std::make_unique<TypeAST>(lexer.curToken.rawToken);
@@ -337,7 +338,7 @@ std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {
             lexer.consume();
             continue;
         }
-        if (lexer.curToken.type != TOK_TYPE) {
+        if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
             return logError("expected struct field type, got " + lexer.curToken.rawToken);
         }
         auto type = std::make_unique<TypeAST>(lexer.curToken.rawToken);

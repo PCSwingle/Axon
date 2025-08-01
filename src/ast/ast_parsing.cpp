@@ -346,12 +346,12 @@ std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {
             return logError("expected struct field identifier, got " + lexer.curToken.rawToken);
         }
         auto identifier = lexer.curToken.rawToken;
-        fields.push_back(std::make_tuple(identifier, type));
+        fields.push_back(std::make_tuple(identifier, std::move(type)));
         lexer.consume();
     }
     lexer.consume();
 
-    return std::make_unique<StructAST>(structIdentifier, fields);
+    return std::make_unique<StructAST>(structIdentifier, std::move(fields));
 }
 
 std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {

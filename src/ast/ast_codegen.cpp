@@ -234,7 +234,7 @@ bool VarAST::codegen(ModuleState& state) {
 }
 
 bool StructAST::codegen(ModuleState& state) {
-    StructType* structType = state.registerStruct(structName, fields);
+    StructType* structType = state.registerStruct(structName, std::move(fields));
     if (!structType) {
         logError("duplicate identifier definition " + structName);
         return false;

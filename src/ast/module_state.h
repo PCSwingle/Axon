@@ -8,38 +8,43 @@
 
 using namespace llvm;
 
-struct TypeAST;
-
-struct VariableIdentifier {
+struct GeneratedVariable {
+    GeneratedType* type;
     AllocaInst* varAlloca;
-    TypeAST* type;
 
-    explicit VariableIdentifier(AllocaInst* varAlloca, TypeAST* type): varAlloca(varAlloca), type(type) {
+    explicit GeneratedVariable(GeneratedType* type, AllocaInst* varAlloca): type(type), varAlloca(varAlloca) {
     }
 };
 
-struct FunctionIdentifier {
+struct GeneratedFunction {
+    std::vector<SigArg> signature;
+    GeneratedType* returnType;
     Function* function;
 
-    explicit FunctionIdentifier(Function* function): function(function) {
+    explicit GeneratedFunction(const std::vector<SigArg>& signature,
+                               GeneratedType* returnType,
+                               Function* function): signature(signature),
+                                                    returnType(returnType),
+                                                    function(function) {
     }
 };
 
-struct StructIdentifier {
+struct GeneratedStruct {
+    GeneratedType* type;
+    std::vector<std::tuple<std::string, GeneratedType*> > fields;
     StructType* structType;
-    std::vector<std::tuple<std::string, TypeAST*> > fields;
 
-    explicit StructIdentifier(StructType* structType,
-                              std::vector<std::tuple<std::string, TypeAST*> >
-                              fields): structType(structType),
-                                       fields(move(fields)) {
+    explicit GeneratedStruct(GeneratedType* type,
+                             std::vector<std::tuple<std::string, GeneratedType*> > fields,
+                             StructType* structType
+    ): type(type), fields(move(fields)), structType(structType) {
     }
 };
 
-typedef std::variant<VariableIdentifier, FunctionIdentifier, StructIdentifier> Identifier;
+typedef std::variant<GeneratedVariable, GeneratedFunction, GeneratedStruct> Identifier;
 
 class ModuleState {
-    AllocaInst* createAlloca(TypeAST* type, std::string& name);
+    AllocaInst* createAlloca(GeneratedType* type, const std::string& name);
 
 public:
     // TODO: should context be static?
@@ -50,6 +55,7 @@ public:
     Type* intPtrTy;
     std::unordered_map<std::string, std::unique_ptr<Identifier> > identifiers;
 
+    std::vector<const GeneratedFunction*> functionStack;
     std::vector<std::vector<std::string> > scopeStack;
 
     ModuleState() {
@@ -64,22 +70,31 @@ public:
 
     bool writeIR(const std::string& filename, bool bitcode = true);
 
+    bool enterFunc(const GeneratedFunction* function);
+
+    void exitFunc();
+
+    GeneratedType* expectedReturnType();
+
     void enterScope();
 
     void exitScope();
 
     bool registerIdentifier(const std::string& identifier, std::unique_ptr<Identifier> val);
 
-    bool registerVar(std::string& identifier, TypeAST* type);
+    bool registerVar(const std::string& identifier, GeneratedType* type);
 
-    VariableIdentifier* getVar(std::string& identifier);
+    GeneratedVariable* getVar(std::string& identifier);
 
-    bool registerFunction(std::string& identifier, FunctionType* type);
+    bool registerFunction(const std::string& identifier,
+                          const std::vector<SigArg>& signature,
+                          GeneratedType* returnType,
+                          FunctionType* type);
 
-    FunctionIdentifier* getFunction(std::string& identifier);
+    GeneratedFunction* getFunction(const std::string& identifier);
 
-    bool registerStruct(std::string& identifier,
-                        std::vector<std::tuple<std::string, TypeAST*> >& fields);
+    bool registerStruct(const std::string& identifier,
+                        std::vector<std::tuple<std::string, GeneratedType*> >& fields);
 
-    StructIdentifier* getStruct(std::string& identifier);
+    GeneratedStruct* getStruct(const std::string& identifier);
 };

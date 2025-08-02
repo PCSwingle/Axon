@@ -6,6 +6,10 @@
 #include "ast/ast.h"
 #include "cli/cli.h"
 
+void cleanup() {
+    // This makes it easier to find leaks
+    GeneratedType::free();
+}
 
 int main(int argc, char* argv[]) {
     CLIArgs args;
@@ -18,12 +22,8 @@ int main(int argc, char* argv[]) {
 
     auto mainBlock = parseBlock(lexer, true);
     ModuleState module;
-    if (mainBlock && mainBlock->codegen(module)) {
-        std::cout << "successfully compiled!" << std::endl;
-        module.writeIR(args.outputFile, !args.outputLL);
-    } else {
-        std::cout << "did not successfully compile :(" << std::endl;
-        return 1;
-    }
-    return 0;
+    bool success = mainBlock && mainBlock->codegen(module) && module.writeIR(args.outputFile, !args.outputLL);
+    std::cout << success ? "successfully compiled!" : "did not successfully compile :(" << std::endl;
+    cleanup();
+    return success ? 0 : 1;
 }

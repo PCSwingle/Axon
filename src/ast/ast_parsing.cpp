@@ -212,10 +212,10 @@ std::unique_ptr<ReturnAST> parseReturn(Lexer& lexer) {
 }
 
 std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
-    std::optional<std::unique_ptr<TypeAST> > type;
+    std::optional<GeneratedType*> type;
     if (lexer.curToken.type == TOK_TYPE || (lexer.curToken.type == TOK_IDENTIFIER && lexer.peek(1).type ==
                                             TOK_IDENTIFIER)) {
-        type = std::make_unique<TypeAST>(lexer.curToken.rawToken);
+        type = GeneratedType::get(lexer.curToken.rawToken);
         lexer.consume();
     }
 
@@ -240,7 +240,7 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
         auto variableExpr = std::make_unique<VariableExprAST>(identifier);
         expr = std::make_unique<BinaryOpExprAST>(std::move(variableExpr), std::move(expr), binOp);
     }
-    return std::make_unique<VarAST>(std::move(type), identifier, std::move(expr));
+    return std::make_unique<VarAST>(type, identifier, std::move(expr));
 }
 
 std::unique_ptr<CallExprAST> parseCall(Lexer& lexer) {
@@ -353,7 +353,7 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
         if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
             return logError("Expected type");
         }
-        auto type = std::make_unique<TypeAST>(lexer.curToken.rawToken);
+        auto type = GeneratedType::get(lexer.curToken.rawToken);
         lexer.consume();
         if (!lexer.curToken.type == TOK_IDENTIFIER) {
             return logError("Expected function argument identifier");
@@ -369,16 +369,16 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
     }
     lexer.consume();
 
-    std::unique_ptr<TypeAST> returnType;
+    GeneratedType* returnType;
     if (lexer.curToken.rawToken == ":") {
         lexer.consume();
         if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
             return logError("Expected function return type");
         }
-        returnType = std::make_unique<TypeAST>(lexer.curToken.rawToken);
+        returnType = GeneratedType::get(lexer.curToken.rawToken);
         lexer.consume();
     } else {
-        returnType = std::make_unique<TypeAST>("void");
+        returnType = GeneratedType::get(KW_VOID);
     }
 
     std::optional<std::unique_ptr<BlockAST> > block;
@@ -410,7 +410,7 @@ std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {
     }
     lexer.consume();
 
-    std::vector<std::tuple<std::string, std::unique_ptr<TypeAST> > > fields;
+    std::vector<std::tuple<std::string, GeneratedType*> > fields;
     while (lexer.curToken.rawToken != "}") {
         // TODO: don't allow bare semicolons?
         if (lexer.curToken.type == TOK_DELIMITER) {
@@ -420,13 +420,13 @@ std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {
         if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
             return logError("expected struct field type, got " + lexer.curToken.rawToken);
         }
-        auto type = std::make_unique<TypeAST>(lexer.curToken.rawToken);
+        auto type = GeneratedType::get(lexer.curToken.rawToken);
         lexer.consume();
         if (lexer.curToken.type != TOK_IDENTIFIER) {
             return logError("expected struct field identifier, got " + lexer.curToken.rawToken);
         }
         auto identifier = lexer.curToken.rawToken;
-        fields.push_back(std::make_tuple(identifier, std::move(type)));
+        fields.push_back(std::make_tuple(identifier, type));
         lexer.consume();
     }
     lexer.consume();

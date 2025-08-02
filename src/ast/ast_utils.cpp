@@ -3,7 +3,7 @@
 
 #include "ast.h"
 
-std::string TypeAST::toString() {
+std::string GeneratedType::toString() {
     return "Type(" + type + ")";
 }
 

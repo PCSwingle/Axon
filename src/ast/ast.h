@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <vector>
 
 #include "module_state.h"
@@ -15,19 +16,62 @@ using namespace llvm;
 class ModuleState;
 
 // structs
-struct TypeAST {
+/// Similar to LLVM, types are pointers to singletons that aren't freed until program end (flyweights).
+/// Every individual type is a pointer to the same object.
+struct GeneratedType {
+private:
+    static inline std::unordered_map<std::string, GeneratedType*> registeredTypes{};
+
+    // TODO: with modules / imports this will need to become more complex
     std::string type;
 
-    explicit TypeAST(std::string type): type(std::move(type)) {
+    explicit GeneratedType(std::string type): type(std::move(type)) {
+    }
+
+public:
+    static GeneratedType* get(const std::string& type) {
+        if (!registeredTypes.contains(type)) {
+            auto* generatedType = new GeneratedType(type);
+            registeredTypes.insert_or_assign(type, generatedType);
+        }
+        return registeredTypes.at(type);
+    }
+
+    static void free() {
+        for (auto type: registeredTypes | std::views::values) {
+            delete type;
+        }
     }
 
     std::string toString();
+
+    bool isBool() {
+        return type == KW_BOOL;
+    }
+
+    bool isVoid() {
+        return type == KW_VOID;
+    }
 
     bool isPrimitive() {
         return TYPES.contains(type);
     }
 
+    bool isFloating() {
+        return type == KW_FLOAT || type == KW_DOUBLE;
+    }
+
     Type* getLLVMType(ModuleState& state);
+};
+
+struct GeneratedValue {
+    GeneratedType* type;
+    Value* value;
+
+    explicit GeneratedValue(GeneratedType* type, Value* value): type(type), value(value) {
+        assert(type);
+        assert(value);
+    }
 };
 
 // abstracts
@@ -54,9 +98,7 @@ public:
         }
     }
 
-    // virtual TypeAST* getType(ModuleState& state) = 0;
-
-    virtual Value* codegenValue(ModuleState& state) = 0;
+    virtual std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) = 0;
 };
 
 // expr
@@ -69,7 +111,7 @@ public:
 
     std::string toString() override;
 
-    Value* codegenValue(ModuleState& state) override;
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
 };
 
 class VariableExprAST : public ExprAST {
@@ -81,7 +123,7 @@ public:
 
     std::string toString() override;
 
-    Value* codegenValue(ModuleState& state) override;
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
 };
 
 class BinaryOpExprAST : public ExprAST {
@@ -97,7 +139,7 @@ public:
 
     std::string toString() override;
 
-    Value* codegenValue(ModuleState& state) override;
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
 };
 
 class UnaryOpExprAST : public ExprAST {
@@ -111,7 +153,7 @@ public:
 
     std::string toString() override;
 
-    Value* codegenValue(ModuleState& state) override;
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
 };
 
 class CallExprAST : public ExprAST {
@@ -126,7 +168,7 @@ public:
 
     std::string toString() override;
 
-    Value* codegenValue(ModuleState& state) override;
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
 };
 
 class AccessorExprAST : public ExprAST {
@@ -141,7 +183,7 @@ public:
 
     std::string toString() override;
 
-    Value* codegenValue(ModuleState& state) override;
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
 };
 
 class ConstructorExprAST : public ExprAST {
@@ -156,18 +198,18 @@ public:
 
     std::string toString() override;
 
-    Value* codegenValue(ModuleState& state) override;
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
 };
 
 // statements
 
 class VarAST : public StatementAST {
-    std::optional<std::unique_ptr<TypeAST> > type;
+    std::optional<GeneratedType*> type;
     std::string identifier;
     std::unique_ptr<ExprAST> expr;
 
 public:
-    explicit VarAST(std::optional<std::unique_ptr<TypeAST> > type,
+    explicit VarAST(std::optional<GeneratedType*> type,
                     std::string identifier,
                     std::unique_ptr<ExprAST> expr): type(std::move(type)),
                                                     identifier(std::move(identifier)),
@@ -182,30 +224,30 @@ public:
 class BlockAST;
 
 struct SigArg {
-    std::unique_ptr<TypeAST> type;
+    GeneratedType* type;
     std::string identifier;
 
     std::string toString();
 };
 
 class FuncAST : public StatementAST {
-    std::unique_ptr<TypeAST> type;
+    GeneratedType* type;
     std::string funcName;
     std::vector<SigArg> signature;
     std::optional<std::unique_ptr<BlockAST> > block;
     bool native;
 
 public:
-    explicit FuncAST(std::unique_ptr<TypeAST> type,
+    explicit FuncAST(GeneratedType* type,
                      std::string funcName,
                      std::vector<SigArg>
                      signature,
                      std::optional<std::unique_ptr<BlockAST> > block,
-                     bool native): type(std::move(type)),
-                                   funcName(std::move(funcName)),
-                                   signature(std::move(signature)),
-                                   block(std::move(block)),
-                                   native(native) {
+                     const bool native): type(std::move(type)),
+                                         funcName(std::move(funcName)),
+                                         signature(std::move(signature)),
+                                         block(std::move(block)),
+                                         native(native) {
     }
 
     std::string toString() override;
@@ -215,11 +257,11 @@ public:
 
 class StructAST : public StatementAST {
     std::string structName;
-    std::vector<std::tuple<std::string, std::unique_ptr<TypeAST> > > fields;
+    std::vector<std::tuple<std::string, GeneratedType*> > fields;
 
 public:
     explicit StructAST(std::string structName,
-                       std::vector<std::tuple<std::string, std::unique_ptr<TypeAST> > > fields): structName(
+                       std::vector<std::tuple<std::string, GeneratedType*> > fields): structName(
             std::move(structName)),
         fields(std::move(fields)) {
     }

@@ -232,11 +232,13 @@ Value* ConstructorExprAST::codegenValue(ModuleState& state) {
     if (!structPointer) {
         return logError("Error creating malloc for " + structName + " constructor");
     }
+    auto used = std::unordered_set<std::string>();
     for (auto&& [i, field]: std::views::enumerate(structIdentifier->fields)) {
         auto& [fieldName, fieldType] = field;
         if (!values.contains(fieldName)) {
             return logError("constructor for struct " + structName + " missing field " + fieldName);
         }
+        used.insert(fieldName);
         // TODO: validate pointer types
         auto fieldValue = values.at(fieldName)->codegenValue(state);
         if (!fieldValue) {
@@ -257,6 +259,11 @@ Value* ConstructorExprAST::codegenValue(ModuleState& state) {
             return logError("Error storing field " + fieldName + " for " + structName + " constructor");
         }
         state.builder->CreateStore(fieldValue, fieldPointer);
+    }
+    for (const auto& fieldName: values | std::views::keys) {
+        if (!used.contains(fieldName)) {
+            return logError("Unknown field " + fieldName + " in constructor for " + structName);
+        }
     }
     return structPointer;
 }

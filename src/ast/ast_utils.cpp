@@ -4,7 +4,7 @@
 #include "ast.h"
 
 std::string GeneratedType::toString() {
-    return "Type(" + type + ")";
+    return type;
 }
 
 std::string ValueExprAST::toString() {

@@ -8,6 +8,8 @@
 #include "debug_consts.h"
 #include "module_state.h"
 #include "logging.h"
+#include "generated.h"
+#include "ast.h"
 
 using namespace llvm;
 

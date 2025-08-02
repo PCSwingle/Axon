@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <ranges>
 
+#include "module_state.h"
 #include "lexer/lexer.h"
 
 
@@ -21,6 +22,8 @@ using namespace llvm;
 struct SigArg;
 
 class ModuleState;
+
+struct GeneratedStruct;
 
 /// Similar to LLVM, types are pointers to singletons that aren't freed until program end (flyweights).
 /// Every individual type is a pointer to the same object.
@@ -65,6 +68,10 @@ public:
 
     bool isFloating() {
         return type == KW_FLOAT || type == KW_DOUBLE;
+    }
+
+    GeneratedStruct* getGenStruct(ModuleState& state) {
+        return state.getStruct(type);
     }
 
     Type* getLLVMType(ModuleState& state);

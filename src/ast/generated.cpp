@@ -1,5 +1,6 @@
 #include <llvm/IR/DerivedTypes.h>
 
+#include "ast.h"
 #include "generated.h"
 #include "logging.h"
 #include "module_state.h"

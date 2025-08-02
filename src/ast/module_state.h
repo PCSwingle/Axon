@@ -1,9 +1,21 @@
 #pragma once
 #include <variant>
-#include <llvm/IR/IRBuilder.h>
+
+#include "llvm/IR/IRBuilder.h"
 #include <llvm/IR/Module.h>
 
-#include "ast.h"
+namespace llvm {
+    class AllocaInst;
+}
+
+using namespace llvm;
+
+struct SigArg;
+
+struct GeneratedType;
+struct GeneratedStruct;
+struct GeneratedFunction;
+struct GeneratedVariable;
 
 typedef std::variant<GeneratedVariable, GeneratedFunction, GeneratedStruct> Identifier;
 

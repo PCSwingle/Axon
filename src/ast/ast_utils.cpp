@@ -1,6 +1,5 @@
 #include <sstream>
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/IR/Type.h>
 
 #include "ast.h"
 

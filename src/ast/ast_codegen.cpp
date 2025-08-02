@@ -221,17 +221,17 @@ Value* ConstructorExprAST::codegenValue(ModuleState& state) {
         return logError("attempted to call constructor for undefined struct " + structName);
     }
 
-    // todo: figure out wtf this is????
-    Type* ITy = Type::getInt32Ty(*state.ctx);
     // todo: free :)
-    // todo: check if failed
-    auto* structPointer = state.builder->CreateMalloc(ITy,
+    auto* structPointer = state.builder->CreateMalloc(state.intPtrTy,
                                                       structIdentifier->structType,
                                                       ConstantExpr::getSizeOf(structIdentifier->structType),
                                                       nullptr,
                                                       nullptr,
                                                       structName + "_malloc"
     );
+    if (!structPointer) {
+        return logError("Error creating malloc for " + structName + " constructor");
+    }
     for (auto&& [i, field]: std::views::enumerate(structIdentifier->fields)) {
         auto& [fieldName, fieldType] = field;
         if (!values.contains(fieldName)) {
@@ -253,6 +253,9 @@ Value* ConstructorExprAST::codegenValue(ModuleState& state) {
                                                      structPointer,
                                                      fieldIndices,
                                                      structName + "_" + fieldName);
+        if (!fieldPointer) {
+            return logError("Error storing field " + fieldName + " for " + structName + " constructor");
+        }
         state.builder->CreateStore(fieldValue, fieldPointer);
     }
     return structPointer;
@@ -348,7 +351,13 @@ bool FuncAST::codegen(ModuleState& state) {
     }
     state.exitScope();
 
-    return !verifyFunction(*function);
+    std::string result;
+    raw_string_ostream stream(result);
+    if (verifyFunction(*function, &stream)) {
+        logError("Error verifying function " + funcName + ": " + result);
+        return false;
+    }
+    return true;
 }
 
 bool IfAST::codegen(ModuleState& state) {

@@ -46,6 +46,8 @@ public:
     std::unique_ptr<LLVMContext> ctx;
     std::unique_ptr<IRBuilder<> > builder;
     std::unique_ptr<Module> module;
+    std::unique_ptr<DataLayout> dl;
+    Type* intPtrTy;
     std::unordered_map<std::string, std::unique_ptr<Identifier> > identifiers;
 
     std::vector<std::vector<std::string> > scopeStack;
@@ -54,6 +56,9 @@ public:
         ctx = std::make_unique<LLVMContext>();
         module = std::make_unique<Module>("axon main module", *ctx);
         builder = std::make_unique<IRBuilder<> >(*ctx);
+        // TODO: set target triple here
+        dl = std::make_unique<DataLayout>();
+        intPtrTy = dl->getIntPtrType(*ctx);
         scopeStack.push_back(std::vector<std::string>());
     }
 

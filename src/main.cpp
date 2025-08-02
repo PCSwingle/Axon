@@ -23,6 +23,7 @@ int main(int argc, char* argv[]) {
         module.writeIR(args.outputFile, !args.outputLL);
     } else {
         std::cout << "did not successfully compile :(" << std::endl;
+        return 1;
     }
     return 0;
 }

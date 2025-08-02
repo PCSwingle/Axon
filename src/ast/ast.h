@@ -12,6 +12,18 @@ namespace llvm {
 
 class ModuleState;
 
+// structs
+struct TypeAST {
+    std::string type;
+
+    explicit TypeAST(std::string type): type(std::move(type)) {
+    }
+
+    std::string toString();
+
+    Type* getLLVMType(ModuleState& state);
+};
+
 // abstracts
 
 class AST {
@@ -37,18 +49,6 @@ public:
     }
 
     virtual Value* codegenValue(ModuleState& state) = 0;
-};
-
-// structs
-struct TypeAST {
-    std::string type;
-
-    explicit TypeAST(std::string type): type(std::move(type)) {
-    }
-
-    std::string toString();
-
-    Type* getType(ModuleState& state);
 };
 
 // expr

@@ -35,7 +35,7 @@ AllocaInst* ModuleState::createAlloca(TypeAST* type, std::string& name) {
     auto oldIP = builder->saveIP();
     auto& entry = builder->GetInsertBlock()->getParent()->getEntryBlock();
     builder->SetInsertPoint(&entry, entry.begin());
-    auto* newAlloca = builder->CreateAlloca(type->getType(*this), nullptr, name);
+    auto* newAlloca = builder->CreateAlloca(type->getLLVMType(*this), nullptr, name);
     builder->restoreIP(oldIP);
     return newAlloca;
 }
@@ -99,7 +99,7 @@ bool ModuleState::registerStruct(std::string& identifier,
                                  std::vector<std::tuple<std::string, TypeAST*> >& fields) {
     auto elements = std::vector<Type*>();
     for (auto& [fieldName, fieldType]: fields) {
-        elements.push_back(fieldType->getType(*this));
+        elements.push_back(fieldType->getLLVMType(*this));
     }
     auto* structType = StructType::get(*ctx, elements);
     return registerIdentifier(identifier, std::make_unique<Identifier>(StructIdentifier(structType, fields)));

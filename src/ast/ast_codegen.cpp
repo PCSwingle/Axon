@@ -12,7 +12,7 @@
 using namespace llvm;
 
 
-Type* TypeAST::getType(ModuleState& state) {
+Type* TypeAST::getLLVMType(ModuleState& state) {
     if (type == "int") {
         return Type::getInt32Ty(*state.ctx);
     } else if (type == "long") {
@@ -249,7 +249,7 @@ Value* ConstructorExprAST::codegenValue(ModuleState& state) {
         if (!fieldValue) {
             return nullptr;
         }
-        if (fieldType->getType(state) != fieldValue->getType()) {
+        if (fieldType->getLLVMType(state) != fieldValue->getType()) {
             return logError("invalid type for field " + fieldName);
         }
         auto fieldIndices = std::vector<Value*>{
@@ -317,10 +317,10 @@ bool StructAST::codegen(ModuleState& state) {
 
 bool FuncAST::codegen(ModuleState& state) {
     // Create prototype
-    Type* returnType = type->getType(state);
+    Type* returnType = type->getLLVMType(state);
     std::vector<Type*> argTypes;
     for (const auto& sig: signature) {
-        argTypes.push_back(sig.type->getType(state));
+        argTypes.push_back(sig.type->getLLVMType(state));
     }
     FunctionType* type = FunctionType::get(returnType, argTypes, false);
     if (!state.registerFunction(funcName, type)) {

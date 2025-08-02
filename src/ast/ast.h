@@ -10,6 +10,8 @@ namespace llvm {
     class Type;
 }
 
+using namespace llvm;
+
 class ModuleState;
 
 // structs

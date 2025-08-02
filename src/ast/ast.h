@@ -23,6 +23,10 @@ struct TypeAST {
 
     std::string toString();
 
+    bool isPrimitive() {
+        return TYPES.contains(type);
+    }
+
     Type* getLLVMType(ModuleState& state);
 };
 
@@ -49,6 +53,8 @@ public:
             return true;
         }
     }
+
+    // virtual TypeAST* getType(ModuleState& state) = 0;
 
     virtual Value* codegenValue(ModuleState& state) = 0;
 };

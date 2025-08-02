@@ -52,12 +52,6 @@ inline const std::unordered_map<std::string, int> BINOPS{
     {"||", 10}
 };
 
-inline const std::unordered_map<char, std::string> ESCAPES{
-    {'"', "\""},
-    {'\'', "'"},
-    {'\\', "\\"}
-};
-
 inline const std::unordered_set<std::string> UNOPS{
     "~",
     "-",
@@ -76,6 +70,12 @@ inline const std::unordered_set<std::string> VAROPS{
     "^=",
     "<<=",
     ">>="
+};
+
+inline const std::unordered_map<char, std::string> ESCAPES{
+    {'"', "\""},
+    {'\'', "'"},
+    {'\\', "\\"}
 };
 
 inline const std::vector<std::string> ALLOPS = []() {
@@ -158,6 +158,7 @@ inline const std::unordered_set<std::string> KEYWORDS{
 
 struct Token {
     std::string rawToken;
+    // TODO: multiple types (since identifier can be a type as well, minus can be unary and binary op, etc.)
     TokenType type;
 
     explicit Token(std::string rawToken, const TokenType type): rawToken(std::move(rawToken)), type(type) {

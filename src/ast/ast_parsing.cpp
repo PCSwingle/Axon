@@ -7,7 +7,7 @@
 
 #include "ast.h"
 
-std::unique_ptr<ExprAST> _parseExprNoBinop(Lexer& lexer) {
+std::unique_ptr<ExprAST> _parseExprNoBinopNoAccessor(Lexer& lexer) {
     // doesn't check for binops; use parseExpr
 
     // values
@@ -31,7 +31,7 @@ std::unique_ptr<ExprAST> _parseExprNoBinop(Lexer& lexer) {
     // parentheses
     if (lexer.curToken.rawToken == "(") {
         lexer.consume();
-        if (auto expr = _parseExprNoBinop(lexer)) {
+        if (auto expr = parseExpr(lexer)) {
             if (lexer.curToken.rawToken != ")") {
                 return logError("Expected closing ) for parenthetical expression");
             }
@@ -43,6 +43,7 @@ std::unique_ptr<ExprAST> _parseExprNoBinop(Lexer& lexer) {
     }
 
     // constructor
+    // TODO: this collides with unop. change it to something else
     if (lexer.curToken.rawToken == "~") {
         return parseConstructor(lexer);
     }
@@ -52,7 +53,7 @@ std::unique_ptr<ExprAST> _parseExprNoBinop(Lexer& lexer) {
     if (lexer.curToken.type == TOK_UNOP || lexer.curToken.rawToken == "-") {
         auto unOp = lexer.curToken.rawToken;
         lexer.consume();
-        if (auto expr = parseExpr(lexer)) {
+        if (auto expr = _parseExprNoBinopNoAccessor(lexer)) {
             return std::make_unique<UnaryOpExprAST>(std::move(expr), unOp);
         } else {
             return nullptr;
@@ -60,6 +61,23 @@ std::unique_ptr<ExprAST> _parseExprNoBinop(Lexer& lexer) {
     }
 
     return logError("Expected expression, got " + lexer.curToken.rawToken);
+}
+
+std::unique_ptr<ExprAST> _parseExprNoBinop(Lexer& lexer) {
+    if (auto expr = _parseExprNoBinopNoAccessor(lexer)) {
+        while (lexer.curToken.rawToken == ".") {
+            lexer.consume();
+            if (lexer.curToken.type != TOK_IDENTIFIER) {
+                return logError("expected field name for accessor, got " + lexer.curToken.rawToken);
+            }
+            auto fieldName = lexer.curToken.rawToken;
+            lexer.consume();
+            expr = std::make_unique<AccessorExprAST>(std::move(expr), std::move(fieldName));
+        }
+        return expr;
+    } else {
+        return nullptr;
+    }
 }
 
 std::unique_ptr<ExprAST> parseExpr(Lexer& lexer) {

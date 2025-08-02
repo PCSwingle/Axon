@@ -30,14 +30,14 @@ Type* TypeAST::getType(ModuleState& state) {
         return PointerType::getUnqual(*state.ctx);
     }
 
-    return logError("type " + type + " currently not supported");
+    return logError("type " + type + " not implemented yet");
 }
 
 // expr
 Value* ValueExprAST::codegenValue(ModuleState& state) {
     if (rawValue.front() == '\"' || rawValue.front() == '\'') {
         auto strVal = rawValue.substr(1, rawValue.length() - 2);
-        return logError("string literals not supported yet");
+        return logError("string literals not implemented yet");
     } else if (rawValue == KW_TRUE) {
         return ConstantInt::getTrue(*state.ctx);
     } else if (rawValue == KW_FALSE) {
@@ -163,7 +163,7 @@ Value* BinaryOpExprAST::codegenValue(ModuleState& state) {
     } else if (cmpOp.has_value()) {
         return state.builder->CreateCmp(cmpOp.value(), L, R, binOp + "_cmpop");
     } else {
-        return logError("binop " + binOp + " currently not supported");
+        return logError("binop " + binOp + " not implemented yet");
     }
 }
 
@@ -178,7 +178,7 @@ Value* UnaryOpExprAST::codegenValue(ModuleState& state) {
         return state.builder->CreateNeg(ex, "neg_binop");
     }
 
-    return logError("unop " + unaryOp + " currently not supported");
+    return logError("unop " + unaryOp + " not implemented yet");
 }
 
 
@@ -214,6 +214,11 @@ Value* CallExprAST::codegenValue(ModuleState& state) {
                                      argsV,
                                      twine);
 }
+
+Value* AccessorExprAST::codegenValue(ModuleState& state) {
+    return logError("accessor not implemented yet");
+}
+
 
 Value* ConstructorExprAST::codegenValue(ModuleState& state) {
     auto* structIdentifier = state.getStruct(structName);

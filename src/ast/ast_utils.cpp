@@ -15,7 +15,6 @@ std::string VariableExprAST::toString() {
     return "Variable(" + varName + ")";
 }
 
-
 std::string BinaryOpExprAST::toString() {
     return "BinOp(" + LHS->toString() + " " + binOp + " " + RHS->toString() + ")";
 }
@@ -34,6 +33,11 @@ std::string CallExprAST::toString() {
     }
     return "Call(" + callName + "(" + result.str() + "))";
 }
+
+std::string AccessorExprAST::toString() {
+    return "(" + structExpr->toString() + ")." + fieldName;
+}
+
 
 std::string ConstructorExprAST::toString() {
     std::ostringstream result;

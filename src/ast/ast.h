@@ -36,7 +36,7 @@ public:
         }
     }
 
-    virtual llvm::Value* codegenValue(ModuleState& state) = 0;
+    virtual Value* codegenValue(ModuleState& state) = 0;
 };
 
 // structs
@@ -48,7 +48,7 @@ struct TypeAST {
 
     std::string toString();
 
-    llvm::Type* getType(ModuleState& state);
+    Type* getType(ModuleState& state);
 };
 
 // expr
@@ -56,12 +56,12 @@ class ValueExprAST : public ExprAST {
     std::string rawValue;
 
 public:
-    explicit ValueExprAST(std::string rawValue): rawValue(rawValue) {
+    explicit ValueExprAST(std::string rawValue): rawValue(std::move(rawValue)) {
     }
 
     std::string toString() override;
 
-    llvm::Value* codegenValue(ModuleState& state) override;
+    Value* codegenValue(ModuleState& state) override;
 };
 
 class VariableExprAST : public ExprAST {
@@ -73,7 +73,7 @@ public:
 
     std::string toString() override;
 
-    llvm::Value* codegenValue(ModuleState& state) override;
+    Value* codegenValue(ModuleState& state) override;
 };
 
 class BinaryOpExprAST : public ExprAST {
@@ -89,7 +89,7 @@ public:
 
     std::string toString() override;
 
-    llvm::Value* codegenValue(ModuleState& state) override;
+    Value* codegenValue(ModuleState& state) override;
 };
 
 class UnaryOpExprAST : public ExprAST {
@@ -103,7 +103,7 @@ public:
 
     std::string toString() override;
 
-    llvm::Value* codegenValue(ModuleState& state) override;
+    Value* codegenValue(ModuleState& state) override;
 };
 
 class CallExprAST : public ExprAST {
@@ -118,7 +118,22 @@ public:
 
     std::string toString() override;
 
-    llvm::Value* codegenValue(ModuleState& state) override;
+    Value* codegenValue(ModuleState& state) override;
+};
+
+class AccessorExprAST : public ExprAST {
+    std::unique_ptr<ExprAST> structExpr;
+    std::string fieldName;
+
+public:
+    explicit AccessorExprAST(std::unique_ptr<ExprAST> structExpr,
+                             std::string fieldName): structExpr(std::move(structExpr)),
+                                                     fieldName(std::move(fieldName)) {
+    }
+
+    std::string toString() override;
+
+    Value* codegenValue(ModuleState& state) override;
 };
 
 class ConstructorExprAST : public ExprAST {
@@ -133,11 +148,10 @@ public:
 
     std::string toString() override;
 
-    llvm::Value* codegenValue(ModuleState& state) override;
+    Value* codegenValue(ModuleState& state) override;
 };
 
 // statements
-
 
 class VarAST : public StatementAST {
     std::optional<std::unique_ptr<TypeAST> > type;

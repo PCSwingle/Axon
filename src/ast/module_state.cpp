@@ -7,6 +7,7 @@
 
 #include "debug_consts.h"
 #include "module_state.h"
+#include "logging.h"
 
 using namespace llvm;
 

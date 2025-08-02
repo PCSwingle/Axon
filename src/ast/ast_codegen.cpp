@@ -6,32 +6,11 @@
 
 #include "ast.h"
 #include "logging.h"
+#include "module_state.h"
 #include "lexer/lexer.h"
-#include "utils.h"
 
 using namespace llvm;
 
-
-Type* GeneratedType::getLLVMType(ModuleState& state) {
-    if (type == KW_INT) {
-        return Type::getInt32Ty(*state.ctx);
-    } else if (type == KW_LONG) {
-        return Type::getInt64Ty(*state.ctx);
-    } else if (type == KW_FLOAT) {
-        return Type::getFloatTy(*state.ctx);
-    } else if (type == KW_DOUBLE) {
-        return Type::getDoubleTy(*state.ctx);
-    } else if (type == KW_BOOL) {
-        return Type::getInt1Ty(*state.ctx);
-    } else if (type == KW_VOID) {
-        return Type::getVoidTy(*state.ctx);
-    } else if (state.getStruct(type)) {
-        // TODO: this will have to change a little to allow self and pre referencing
-        return PointerType::getUnqual(*state.ctx);
-    }
-
-    return logError("type " + type + " not implemented yet");
-}
 
 // expr
 std::unique_ptr<GeneratedValue> ValueExprAST::codegenValue(ModuleState& state) {
@@ -204,7 +183,9 @@ std::unique_ptr<GeneratedValue> CallExprAST::codegenValue(ModuleState& state) {
             return nullptr;
         }
         if (genFunction->signature[i].type != arg->type) {
-            return logError("expected type " + genFunction->signature[i].type + ", got type " + arg->type());
+            return logError(
+                "expected type " + genFunction->signature[i].type->toString() + ", got type " + arg->type->
+                toString());
         }
         argsV.push_back(arg->value);
     }
@@ -242,12 +223,11 @@ std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& st
             return logError("constructor for struct " + structName + " missing field " + fieldName);
         }
         used.insert(fieldName);
-        // TODO: validate pointer types
         auto fieldValue = values.at(fieldName)->codegenValue(state);
         if (!fieldValue) {
             return nullptr;
         }
-        if (fieldType->getLLVMType(state) != fieldValue->getType()) {
+        if (fieldType != fieldValue->type) {
             return logError("invalid type for field " + fieldName);
         }
         auto fieldIndices = std::vector<Value*>{
@@ -258,7 +238,7 @@ std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& st
                                                      structPointer,
                                                      fieldIndices,
                                                      structName + "_" + fieldName);
-        state.builder->CreateStore(fieldValue, fieldPointer);
+        state.builder->CreateStore(fieldValue->value, fieldPointer);
     }
     for (const auto& fieldName: values | std::views::keys) {
         if (!used.contains(fieldName)) {
@@ -276,7 +256,7 @@ bool VarAST::codegen(ModuleState& state) {
         return false;
     }
 
-    if (type.has_value() && !state.registerVar(identifier, type)) {
+    if (type.has_value() && !state.registerVar(identifier, type.value())) {
         logError("duplicate identifier definition " + identifier);
         return false;
     }
@@ -287,8 +267,8 @@ bool VarAST::codegen(ModuleState& state) {
     }
     if (genVar->type != val->type) {
         logError(
-            "wrong type assigned to variable, expected " + genVar->type + ", got " +
-            val->type);
+            "wrong type assigned to variable, expected " + genVar->type->toString() + ", got " +
+            val->type->toString());
         return false;
     }
     state.builder->CreateStore(val->value, genVar->varAlloca);
@@ -306,13 +286,12 @@ bool StructAST::codegen(ModuleState& state) {
 
 bool FuncAST::codegen(ModuleState& state) {
     // Create prototype
-    Type* returnType = type->getLLVMType(state);
     std::vector<Type*> argTypes;
     for (const auto& sig: signature) {
         argTypes.push_back(sig.type->getLLVMType(state));
     }
-    FunctionType* type = FunctionType::get(returnType, argTypes, false);
-    if (!state.registerFunction(funcName, type)) {
+    FunctionType* type = FunctionType::get(returnType->getLLVMType(state), argTypes, false);
+    if (!state.registerFunction(funcName, signature, returnType, type)) {
         logError("duplicate identifier definition " + funcName);
         return false;
     }
@@ -338,10 +317,6 @@ bool FuncAST::codegen(ModuleState& state) {
 
     state.enterFunc(genFunction);
     for (int i = 0; i < signature.size(); i++) {
-        if (!state.registerVar(signature[i].identifier, signature[i].type)) {
-            logError("duplicate identifier definition " + signature[i].identifier);
-            return false;
-        }
         auto* genVar = state.getVar(signature[i].identifier);
         auto* arg = function->getArg(i);
         state.builder->CreateStore(arg, genVar->varAlloca);
@@ -443,13 +418,13 @@ bool ReturnAST::codegen(ModuleState& state) {
             return false;
         }
         if (returnValue->type != returnType) {
-            logError("expected return type of " + returnType + ", got " + returnValue->type);
+            logError("expected return type of " + returnType->toString() + ", got " + returnValue->type->toString());
             return false;
         }
         state.builder->CreateRet(returnValue->value);
     } else {
         if (!returnType->isVoid()) {
-            logError("expected return type of " + returnType + ", got void");
+            logError("expected return type of " + returnType->toString() + ", got void");
             return false;
         }
         state.builder->CreateRetVoid();

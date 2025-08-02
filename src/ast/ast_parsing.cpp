@@ -388,11 +388,13 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
             return nullptr;
         }
     }
-    return std::make_unique<FuncAST>(std::move(returnType),
-                                     funcName,
-                                     std::move(signature),
-                                     std::move(block),
-                                     native);
+    return std::make_unique<FuncAST>(
+        funcName,
+        std::move(signature),
+        returnType,
+        std::move(block),
+        native
+    );
 }
 
 std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {

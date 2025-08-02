@@ -1,45 +1,9 @@
 #pragma once
 #include <variant>
-#include <logging.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
 
 #include "ast.h"
-
-using namespace llvm;
-
-struct GeneratedVariable {
-    GeneratedType* type;
-    AllocaInst* varAlloca;
-
-    explicit GeneratedVariable(GeneratedType* type, AllocaInst* varAlloca): type(type), varAlloca(varAlloca) {
-    }
-};
-
-struct GeneratedFunction {
-    std::vector<SigArg> signature;
-    GeneratedType* returnType;
-    Function* function;
-
-    explicit GeneratedFunction(const std::vector<SigArg>& signature,
-                               GeneratedType* returnType,
-                               Function* function): signature(signature),
-                                                    returnType(returnType),
-                                                    function(function) {
-    }
-};
-
-struct GeneratedStruct {
-    GeneratedType* type;
-    std::vector<std::tuple<std::string, GeneratedType*> > fields;
-    StructType* structType;
-
-    explicit GeneratedStruct(GeneratedType* type,
-                             std::vector<std::tuple<std::string, GeneratedType*> > fields,
-                             StructType* structType
-    ): type(type), fields(move(fields)), structType(structType) {
-    }
-};
 
 typedef std::variant<GeneratedVariable, GeneratedFunction, GeneratedStruct> Identifier;
 

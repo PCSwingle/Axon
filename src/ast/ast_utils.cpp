@@ -69,7 +69,7 @@ std::string FuncAST::toString() {
             result << ", ";
         }
     }
-    auto sig = "Func(" + type->toString() + " " + funcName + "(" + result.str() + "))";
+    auto sig = "Func(" + returnType->toString() + " " + funcName + "(" + result.str() + "))";
     if (native) {
         return "native " + sig;
     } else {

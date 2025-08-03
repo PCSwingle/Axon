@@ -5,14 +5,22 @@
 #include <llvm/IR/Verifier.h>
 
 #include "ast.h"
+#include "llvm_utils.h"
 #include "logging.h"
 #include "module_state.h"
 #include "lexer/lexer.h"
 
 using namespace llvm;
 
-
 // expr
+bool ExprAST::codegen(ModuleState& state) {
+    if (!codegenValue(state)) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
 std::unique_ptr<GeneratedValue> ValueExprAST::codegenValue(ModuleState& state) {
     if (rawValue.front() == '\"' || rawValue.front() == '\'') {
         auto strVal = rawValue.substr(1, rawValue.length() - 2);
@@ -198,7 +206,27 @@ std::unique_ptr<GeneratedValue> CallExprAST::codegenValue(ModuleState& state) {
 }
 
 std::unique_ptr<GeneratedValue> AccessorExprAST::codegenValue(ModuleState& state) {
-    return logError("accessor not implemented yet");
+    auto structVal = structExpr->codegenValue(state);
+    if (!structVal) {
+        return nullptr;
+    }
+    auto genStruct = structVal->type->getGenStruct(state);
+    if (!genStruct) {
+        return logError("type " + structVal->type->toString() + " does not have fields to access");
+    }
+
+    auto fieldIndex = genStruct->getFieldIndex(fieldName);
+    if (!fieldIndex.has_value()) {
+        return logError("struct " + genStruct->type->toString() + " has no field " + fieldName);
+    }
+    auto fieldType = std::get<1>(genStruct->fields[fieldIndex.value()]);
+    auto fieldIndices = createFieldIndices(state, fieldIndex.value());
+    auto fieldPointer = state.builder->CreateGEP(genStruct->structType,
+                                                 structVal->value,
+                                                 fieldIndices,
+                                                 genStruct->type->toString() + "_" + fieldName);
+    auto val = state.builder->CreateLoad(fieldType->getLLVMType(state), fieldPointer);
+    return std::make_unique<GeneratedValue>(fieldType, val);
 }
 
 
@@ -230,10 +258,7 @@ std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& st
         if (fieldType != fieldValue->type) {
             return logError("invalid type for field " + fieldName);
         }
-        auto fieldIndices = std::vector<Value*>{
-            ConstantInt::get(*state.ctx, APInt(32, 0)),
-            ConstantInt::get(*state.ctx, APInt(32, i))
-        };
+        auto fieldIndices = createFieldIndices(state, i);
         auto fieldPointer = state.builder->CreateGEP(genStruct->structType,
                                                      structPointer,
                                                      fieldIndices,

@@ -2,6 +2,7 @@
 #include <llvm/Support/raw_ostream.h>
 
 #include "ast.h"
+#include "generated.h"
 
 std::string GeneratedType::toString() {
     return type;

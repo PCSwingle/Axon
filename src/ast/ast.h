@@ -4,14 +4,15 @@
 #include <ranges>
 #include <vector>
 
-#include "generated.h"
-
 namespace llvm {
     class Value;
     class Type;
 }
 
 using namespace llvm;
+
+struct GeneratedType;
+struct GeneratedValue;
 
 class ModuleState;
 
@@ -31,13 +32,7 @@ public:
 
 class ExprAST : public StatementAST {
 public:
-    bool codegen(ModuleState& state) override {
-        if (!codegenValue(state)) {
-            return false;
-        } else {
-            return true;
-        }
-    }
+    bool codegen(ModuleState& state) override;
 
     virtual std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) = 0;
 };

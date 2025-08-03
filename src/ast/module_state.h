@@ -4,6 +4,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include <llvm/IR/Module.h>
 
+#include "generated.h"
+
 namespace llvm {
     class AllocaInst;
 }
@@ -16,8 +18,6 @@ struct GeneratedType;
 struct GeneratedStruct;
 struct GeneratedFunction;
 struct GeneratedVariable;
-
-typedef std::variant<GeneratedVariable, GeneratedFunction, GeneratedStruct> Identifier;
 
 class ModuleState {
     AllocaInst* createAlloca(GeneratedType* type, const std::string& name);

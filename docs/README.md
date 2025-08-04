@@ -14,24 +14,24 @@ This is a multi-line comment
 ### Types
 
 ```
-bool my_bool = True | False
-int my_32bit_num = 0
-long my_64bit_num = 0
-int? optional_int = null # all types can be optional, i.e. can be null
-int x = optional_int! + n # at your own risk you can assert that it isn't null
+let my_bool: bool = True | False
+let my_32bit_num = 0
+let my_64bit_num: long = 0L
+let optional_int: int? = null # all types can be optional, i.e. can be null
+x = optional_int! + n # at your own risk you can assert that it isn't null
 ```
 
 ### Variables
 
 ```
-int x = 2 # Semicolons not required (but are allowed)
-bool b = ( a ||
+let x = 2 # Semicolons not required (but are allowed)
+let b = ( a ||
            b ||
            c
          ) # Multi-line expressions require parentheses
 if (b) {
     # Shadowing not allowed
-    bool b = False # Will crash!
+    let b: bool = False # Will crash!
 }
 ```
 
@@ -64,11 +64,9 @@ if (b) {
 ### Functions
 
 ```
-func int my_func(int var1, int var2) {
+func my_func(int var1, int var2): int {
     return var1 + var2
 }
-
-
 ```
 
 ### Control

@@ -140,15 +140,21 @@ public:
 // statements
 
 class VarAST : public StatementAST {
-    std::optional<GeneratedType*> type;
+    bool definition;
     std::string identifier;
+    std::vector<std::string> fieldNames;
+    std::optional<GeneratedType*> type;
     std::unique_ptr<ExprAST> expr;
 
 public:
-    explicit VarAST(std::optional<GeneratedType*> type,
+    explicit VarAST(const bool definition,
                     std::string identifier,
-                    std::unique_ptr<ExprAST> expr): type(std::move(type)),
+                    std::vector<std::string> fieldNames,
+                    std::optional<GeneratedType*> type,
+                    std::unique_ptr<ExprAST> expr): definition(definition),
                                                     identifier(std::move(identifier)),
+                                                    fieldNames(std::move(fieldNames)),
+                                                    type(std::move(type)),
                                                     expr(std::move(expr)) {
     }
 

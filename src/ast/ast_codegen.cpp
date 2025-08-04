@@ -281,10 +281,12 @@ bool VarAST::codegen(ModuleState& state) {
         return false;
     }
 
-    if (type.has_value() && !state.registerVar(identifier, type.value())) {
+    GeneratedType* varType = type.value_or(val->type);
+    if (definition && !state.registerVar(identifier, varType)) {
         logError("duplicate identifier definition " + identifier);
         return false;
     }
+
     auto* genVar = state.getVar(identifier);
     if (!genVar) {
         logError("reference to undefined variable " + identifier);

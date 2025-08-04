@@ -213,10 +213,9 @@ std::unique_ptr<ReturnAST> parseReturn(Lexer& lexer) {
 }
 
 std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
-    std::optional<GeneratedType*> type;
-    if (lexer.curToken.type == TOK_TYPE || (lexer.curToken.type == TOK_IDENTIFIER && lexer.peek(1).type ==
-                                            TOK_IDENTIFIER)) {
-        type = GeneratedType::get(lexer.curToken.rawToken);
+    bool definition = false;
+    if (lexer.curToken.rawToken == KW_LET) {
+        definition = true;
         lexer.consume();
     }
 
@@ -225,6 +224,29 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
     }
     auto identifier = lexer.curToken.rawToken;
     lexer.consume();
+
+    std::vector<std::string> fieldNames{};
+    while (lexer.curToken.rawToken == ".") {
+        lexer.consume();
+        if (lexer.curToken.type != TOK_IDENTIFIER) {
+            return logError("Expected field name after accessor");
+        }
+        fieldNames.push_back(lexer.curToken.rawToken);
+        lexer.consume();
+    }
+
+    std::optional<GeneratedType*> type;
+    if (lexer.curToken.rawToken == ":") {
+        lexer.consume();
+        if (!definition) {
+            return logError("Cannot only set variable type on definition");
+        }
+        if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
+            return logError("Expected type after : in variable definition");
+        }
+        type = GeneratedType::get(lexer.curToken.rawToken);
+        lexer.consume();
+    }
 
     if (lexer.curToken.type != TOK_VAROP) {
         return logError("Expected variable assignment operator, got " + lexer.curToken.rawToken);
@@ -241,7 +263,7 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
         auto variableExpr = std::make_unique<VariableExprAST>(identifier);
         expr = std::make_unique<BinaryOpExprAST>(std::move(variableExpr), std::move(expr), binOp);
     }
-    return std::make_unique<VarAST>(type, identifier, std::move(expr));
+    return std::make_unique<VarAST>(definition, identifier, std::move(fieldNames), type, std::move(expr));
 }
 
 std::unique_ptr<CallExprAST> parseCall(Lexer& lexer) {
@@ -351,16 +373,21 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
 
     std::vector<SigArg> signature;
     while (lexer.curToken.rawToken != ")") {
-        if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
-            return logError("Expected type");
-        }
-        auto type = GeneratedType::get(lexer.curToken.rawToken);
-        lexer.consume();
         if (!lexer.curToken.type == TOK_IDENTIFIER) {
             return logError("Expected function argument identifier");
         }
         auto identifier = lexer.curToken.rawToken;
         lexer.consume();
+        if (lexer.curToken.rawToken != ":") {
+            return logError("Expected : after variable name");
+        }
+        lexer.consume();
+        if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
+            return logError("Expected type");
+        }
+        auto type = GeneratedType::get(lexer.curToken.rawToken);
+        lexer.consume();
+
         signature.push_back({std::move(type), identifier});
         if (lexer.curToken.rawToken == ",") {
             lexer.consume();
@@ -420,21 +447,42 @@ std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {
             lexer.consume();
             continue;
         }
-        if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
-            return logError("expected struct field type, got " + lexer.curToken.rawToken);
-        }
-        auto type = GeneratedType::get(lexer.curToken.rawToken);
-        lexer.consume();
+
         if (lexer.curToken.type != TOK_IDENTIFIER) {
             return logError("expected struct field identifier, got " + lexer.curToken.rawToken);
         }
         auto identifier = lexer.curToken.rawToken;
-        fields.push_back(std::make_tuple(identifier, type));
         lexer.consume();
+        if (lexer.curToken.rawToken != ":") {
+            return logError("Expected : after variable name");
+        }
+        lexer.consume();
+        if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
+            return logError("Expected type");
+        }
+        auto type = GeneratedType::get(lexer.curToken.rawToken);
+        lexer.consume();
+
+        fields.push_back(std::make_tuple(identifier, type));
     }
     lexer.consume();
 
     return std::make_unique<StructAST>(structIdentifier, std::move(fields));
+}
+
+// var assignments are indistinguishable from expressions until the : or varop.
+// this is downstream of not making var declarations expressions.
+bool isVarAssignment(Lexer& lexer) {
+    int peeking = 0;
+    while (lexer.peek(peeking).type == TOK_IDENTIFIER) {
+        if (lexer.peek(peeking + 1).rawToken == ":" || lexer.peek(peeking + 1).type == TOK_VAROP) {
+            return true;
+        } else if (lexer.peek(peeking + 1).rawToken != ".") {
+            return false;
+        }
+        peeking += 2;
+    }
+    return false;
 }
 
 std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
@@ -450,11 +498,7 @@ std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
         statement = parseWhile(lexer);
     } else if (lexer.curToken.rawToken == KW_RETURN) {
         statement = parseReturn(lexer);
-    } else if (lexer.curToken.type == TOK_TYPE ||
-               (lexer.curToken.type == TOK_IDENTIFIER &&
-                lexer.peek(1).type == TOK_IDENTIFIER) ||
-               (lexer.curToken.type == TOK_IDENTIFIER &&
-                lexer.peek(1).type == TOK_VAROP)) {
+    } else if (lexer.curToken.rawToken == KW_LET || isVarAssignment(lexer)) {
         statement = parseVar(lexer);
     } else {
         statement = parseExpr(lexer);

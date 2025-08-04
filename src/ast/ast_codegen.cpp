@@ -5,7 +5,6 @@
 #include <llvm/IR/Verifier.h>
 
 #include "ast.h"
-#include "llvm_utils.h"
 #include "logging.h"
 #include "module_state.h"
 #include "lexer/lexer.h"
@@ -138,7 +137,9 @@ std::unique_ptr<GeneratedValue> BinaryOpExprAST::codegenValue(ModuleState& state
     }
 
     if (L->type != R->type) {
-        return logError("binary expression between two values not the same type");
+        return logError(
+            "binary expression between two values not the same type; got " + L->type->toString() + " and " + R->type->
+            toString());
     }
     bool floating = L->type->isFloating();
 
@@ -210,23 +211,12 @@ std::unique_ptr<GeneratedValue> AccessorExprAST::codegenValue(ModuleState& state
     if (!structVal) {
         return nullptr;
     }
-    auto genStruct = structVal->type->getGenStruct(state);
-    if (!genStruct) {
-        return logError("type " + structVal->type->toString() + " does not have fields to access");
+    auto fieldPointer = structVal->getFieldPointer(state, fieldName);
+    if (!fieldPointer) {
+        return nullptr;
     }
-
-    auto fieldIndex = genStruct->getFieldIndex(fieldName);
-    if (!fieldIndex.has_value()) {
-        return logError("struct " + genStruct->type->toString() + " has no field " + fieldName);
-    }
-    auto fieldType = std::get<1>(genStruct->fields[fieldIndex.value()]);
-    auto fieldIndices = createFieldIndices(state, fieldIndex.value());
-    auto fieldPointer = state.builder->CreateGEP(genStruct->structType,
-                                                 structVal->value,
-                                                 fieldIndices,
-                                                 genStruct->type->toString() + "_" + fieldName);
-    auto val = state.builder->CreateLoad(fieldType->getLLVMType(state), fieldPointer);
-    return std::make_unique<GeneratedValue>(fieldType, val);
+    auto val = state.builder->CreateLoad(fieldPointer->type->getLLVMType(state), fieldPointer->value);
+    return std::make_unique<GeneratedValue>(fieldPointer->type, val);
 }
 
 
@@ -244,33 +234,30 @@ std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& st
                                                       nullptr,
                                                       structName + "_malloc"
     );
+    auto structVal = std::make_unique<GeneratedValue>(genStruct->type, structPointer);
+
     auto used = std::unordered_set<std::string>();
-    for (auto&& [i, field]: std::views::enumerate(genStruct->fields)) {
-        auto& [fieldName, fieldType] = field;
-        if (!values.contains(fieldName)) {
-            return logError("constructor for struct " + structName + " missing field " + fieldName);
-        }
+    for (auto& [fieldName, fieldExpr]: values) {
         used.insert(fieldName);
-        auto fieldValue = values.at(fieldName)->codegenValue(state);
+        auto fieldValue = fieldExpr->codegenValue(state);
         if (!fieldValue) {
             return nullptr;
         }
-        if (fieldType != fieldValue->type) {
+        auto fieldPointer = structVal->getFieldPointer(state, fieldName);
+        if (!fieldPointer) {
+            return nullptr;
+        }
+        if (fieldPointer->type != fieldValue->type) {
             return logError("invalid type for field " + fieldName);
         }
-        auto fieldIndices = createFieldIndices(state, i);
-        auto fieldPointer = state.builder->CreateGEP(genStruct->structType,
-                                                     structPointer,
-                                                     fieldIndices,
-                                                     structName + "_" + fieldName);
-        state.builder->CreateStore(fieldValue->value, fieldPointer);
+        state.builder->CreateStore(fieldValue->value, fieldPointer->value);
     }
-    for (const auto& fieldName: values | std::views::keys) {
+    for (const auto& [fieldName, _]: genStruct->fields) {
         if (!used.contains(fieldName)) {
-            return logError("Unknown field " + fieldName + " in constructor for " + structName);
+            return logError("Field " + fieldName + " required for " + structName + " constructor");
         }
     }
-    return std::make_unique<GeneratedValue>(genStruct->type, structPointer);
+    return structVal;
 }
 
 
@@ -292,13 +279,24 @@ bool VarAST::codegen(ModuleState& state) {
         logError("reference to undefined variable " + identifier);
         return false;
     }
-    if (genVar->type != val->type) {
+    auto varPointer = genVar->toValue();
+    for (const auto& fieldName: fieldNames) {
+        varPointer = varPointer->getFieldPointer(state, fieldName);
+        if (!varPointer) {
+            return false;
+        }
+        varPointer->value = state.builder->CreateLoad(PointerType::getUnqual(*state.ctx),
+                                                      varPointer->value,
+                                                      fieldName);
+    }
+
+    if (varPointer->type != val->type) {
         logError(
-            "wrong type assigned to variable, expected " + genVar->type->toString() + ", got " +
+            "wrong type assigned to variable: expected " + varPointer->type->toString() + ", got " +
             val->type->toString());
         return false;
     }
-    state.builder->CreateStore(val->value, genVar->varAlloca);
+    state.builder->CreateStore(val->value, varPointer->value);
     return true;
 }
 

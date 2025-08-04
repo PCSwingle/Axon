@@ -20,7 +20,11 @@ using namespace llvm;
 
 class ModuleState;
 
+struct GeneratedVariable;
+struct GeneratedFunction;
 struct GeneratedStruct;
+
+typedef std::variant<GeneratedVariable, GeneratedFunction, GeneratedStruct> Identifier;
 
 /// Similar to LLVM, types are pointers to singletons that aren't freed until program end (flyweights).
 /// Every individual type is a pointer to the same object.
@@ -62,6 +66,8 @@ struct GeneratedValue {
         assert(type);
         assert(value);
     }
+
+    std::unique_ptr<GeneratedValue> getFieldPointer(ModuleState& state, const std::string& fieldName);
 };
 
 struct GeneratedVariable {
@@ -70,6 +76,9 @@ struct GeneratedVariable {
 
     explicit GeneratedVariable(GeneratedType* type, AllocaInst* varAlloca): type(type), varAlloca(varAlloca) {
     }
+
+    // TODO: should this whole class even exist?
+    std::unique_ptr<GeneratedValue> toValue();
 };
 
 struct GeneratedFunction {
@@ -99,4 +108,3 @@ struct GeneratedStruct {
     std::optional<int> getFieldIndex(const std::string& fieldName);
 };
 
-typedef std::variant<GeneratedVariable, GeneratedFunction, GeneratedStruct> Identifier;

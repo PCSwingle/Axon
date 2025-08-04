@@ -260,8 +260,12 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
     }
     if (varOp != "=") {
         auto binOp = varOp.substr(0, varOp.size() - 1);
-        auto variableExpr = std::make_unique<VariableExprAST>(identifier);
-        expr = std::make_unique<BinaryOpExprAST>(std::move(variableExpr), std::move(expr), binOp);
+        // TODO: clean up accessor (somehow?) between it, here, and variablexprast
+        std::unique_ptr<ExprAST> varPointer = std::make_unique<VariableExprAST>(identifier);
+        for (const auto& fieldName: fieldNames) {
+            varPointer = std::make_unique<AccessorExprAST>(std::move(varPointer), fieldName);
+        }
+        expr = std::make_unique<BinaryOpExprAST>(std::move(varPointer), std::move(expr), binOp);
     }
     return std::make_unique<VarAST>(definition, identifier, std::move(fieldNames), type, std::move(expr));
 }

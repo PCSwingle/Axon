@@ -4,6 +4,7 @@
 #include "generated.h"
 #include "logging.h"
 #include "module_state.h"
+#include "llvm_utils.h"
 
 
 std::unordered_map<std::string, GeneratedType*> GeneratedType::registeredTypes{};
@@ -62,6 +63,29 @@ Type* GeneratedType::getLLVMType(ModuleState& state) {
 
     return logError("type " + type + " not implemented yet");
 }
+
+std::unique_ptr<GeneratedValue> GeneratedValue::getFieldPointer(ModuleState& state, const std::string& fieldName) {
+    auto genStruct = type->getGenStruct(state);
+    if (!genStruct) {
+        return logError("type " + type->toString() + " does not have fields to access");
+    }
+    auto fieldIndex = genStruct->getFieldIndex(fieldName);
+    if (!fieldIndex.has_value()) {
+        return logError("struct " + genStruct->type->toString() + " has no field " + fieldName);
+    }
+    auto fieldType = std::get<1>(genStruct->fields[fieldIndex.value()]);
+    auto fieldIndices = createFieldIndices(state, fieldIndex.value());
+    auto fieldPointer = state.builder->CreateGEP(genStruct->structType,
+                                                 value,
+                                                 fieldIndices,
+                                                 genStruct->type->toString() + "_" + fieldName);
+    return std::make_unique<GeneratedValue>(fieldType, fieldPointer);
+}
+
+std::unique_ptr<GeneratedValue> GeneratedVariable::toValue() {
+    return std::make_unique<GeneratedValue>(type, varAlloca);
+}
+
 
 std::optional<int> GeneratedStruct::getFieldIndex(const std::string& fieldName) {
     for (auto&& [i, field]: std::views::enumerate(fields)) {

@@ -64,7 +64,7 @@ if (b) {
 ### Functions
 
 ```
-func my_func(int var1, int var2): int {
+func my_func(var1: int, var2: int): int {
     return var1 + var2
 }
 ```

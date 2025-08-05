@@ -281,13 +281,13 @@ bool VarAST::codegen(ModuleState& state) {
     }
     auto varPointer = genVar->toValue();
     for (const auto& fieldName: fieldNames) {
+        varPointer->value = state.builder->CreateLoad(PointerType::getUnqual(*state.ctx),
+                                                      varPointer->value,
+                                                      fieldName);
         varPointer = varPointer->getFieldPointer(state, fieldName);
         if (!varPointer) {
             return false;
         }
-        varPointer->value = state.builder->CreateLoad(PointerType::getUnqual(*state.ctx),
-                                                      varPointer->value,
-                                                      fieldName);
     }
 
     if (varPointer->type != val->type) {

@@ -60,7 +60,7 @@ public:
 
     bool registerVar(const std::string& identifier, GeneratedType* type);
 
-    GeneratedVariable* getVar(std::string& identifier);
+    GeneratedVariable* getVar(const std::string& identifier);
 
     bool registerFunction(const std::string& identifier,
                           const std::vector<SigArg>& signature,

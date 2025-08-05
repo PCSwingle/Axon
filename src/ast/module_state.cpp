@@ -92,7 +92,7 @@ bool ModuleState::registerVar(const std::string& identifier, GeneratedType* type
     return registerIdentifier(identifier, std::make_unique<Identifier>(GeneratedVariable(type, varAlloca)));
 }
 
-GeneratedVariable* ModuleState::getVar(std::string& identifier) {
+GeneratedVariable* ModuleState::getVar(const std::string& identifier) {
     if (!identifiers.contains(identifier)) {
         return nullptr;
     }

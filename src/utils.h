@@ -1,5 +1,19 @@
 #pragma once
+#include <filesystem>
 #include <fstream>
+#include <vector>
+
+inline std::vector<std::string> split(const std::string& str, const std::string& separator) {
+    std::vector<std::string> parts;
+    int cur = 0;
+    int loc;
+    while ((loc = str.find(separator, cur)) != std::string::npos) {
+        parts.push_back(str.substr(cur, loc - cur));
+        cur = loc + separator.size();
+    }
+    parts.push_back(str.substr(cur));
+    return parts;
+}
 
 inline std::string readStdin() {
     std::cout << "code >" << std::endl;
@@ -11,7 +25,7 @@ inline std::string readStdin() {
     return text;
 }
 
-inline std::string readFile(const std::string& filename) {
+inline std::string readFile(const std::filesystem::path& filename) {
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Error opening file!" << std::endl;

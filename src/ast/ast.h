@@ -17,17 +17,21 @@ struct GeneratedValue;
 class ModuleState;
 
 // abstracts
-
 class AST {
 public:
     virtual ~AST() = default;
 
     virtual std::string toString() = 0;
+
+    virtual bool codegen(ModuleState& state) = 0;
+};
+
+class TopLevelAST : public AST {
+public:
+    virtual bool preregister(ModuleState& state) = 0;
 };
 
 class StatementAST : public AST {
-public:
-    virtual bool codegen(ModuleState& state) = 0;
 };
 
 class ExprAST : public StatementAST {
@@ -138,7 +142,6 @@ public:
 };
 
 // statements
-
 class VarAST : public StatementAST {
     bool definition;
     std::string identifier;
@@ -172,7 +175,7 @@ struct SigArg {
     std::string toString();
 };
 
-class FuncAST : public StatementAST {
+class FuncAST : public TopLevelAST, public StatementAST {
     std::string funcName;
     std::vector<SigArg> signature;
     GeneratedType* returnType;
@@ -195,10 +198,12 @@ public:
 
     std::string toString() override;
 
+    bool preregister(ModuleState& state) override;
+
     bool codegen(ModuleState& state) override;
 };
 
-class StructAST : public StatementAST {
+class StructAST : public TopLevelAST, public StatementAST {
     std::string structName;
     std::vector<std::tuple<std::string, GeneratedType*> > fields;
 
@@ -210,6 +215,8 @@ public:
     }
 
     std::string toString() override;
+
+    bool preregister(ModuleState& state) override;
 
     bool codegen(ModuleState& state) override;
 };
@@ -269,7 +276,21 @@ public:
 
     std::string toString() override;
 
-    bool codegen(ModuleState& state);
+    bool codegen(ModuleState& state) override;
+};
+
+class UnitAST : public AST {
+    std::vector<std::unique_ptr<TopLevelAST> > statements;
+
+public:
+    explicit UnitAST(std::vector<std::unique_ptr<TopLevelAST> > statements): statements(std::move(statements)) {
+    }
+
+    std::string toString() override;
+
+    bool registerUnit(ModuleState& state);
+
+    bool codegen(ModuleState& state) override;
 };
 
 // parsing funcs
@@ -293,4 +314,8 @@ std::unique_ptr<StructAST> parseStruct(Lexer& lexer);
 
 std::unique_ptr<StatementAST> parseStatement(Lexer& lexer);
 
-std::unique_ptr<BlockAST> parseBlock(Lexer& lexer, bool topLevel = false);
+std::unique_ptr<TopLevelAST> parseTopLevel(Lexer& lexer);
+
+std::unique_ptr<BlockAST> parseBlock(Lexer& lexer);
+
+std::unique_ptr<UnitAST> parseUnit(Lexer& lexer);

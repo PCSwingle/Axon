@@ -193,7 +193,7 @@ public:
         do {
             token = process();
             tokens.push_back(token);
-            if (DEBUG_LEXER_PRINT_TOKENS) {
+            if constexpr (DEBUG_LEXER_PRINT_TOKENS) {
                 std::cout << "Token: " << token.rawToken << " Type: " << token.type << std::endl;
             }
         } while (token.type != TOK_EOF);

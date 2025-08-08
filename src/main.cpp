@@ -5,25 +5,21 @@
 #include "lexer/lexer.h"
 #include "ast/ast.h"
 #include "ast/module_state.h"
-#include "cli/cli.h"
+#include "build/module_config.h"
 
 void cleanup() {
     // This makes it easier to find leaks
     GeneratedType::free();
 }
 
-int main(int argc, char* argv[]) {
-    CLIArgs args;
-    if (!args.parse(argc, argv)) {
+int main(const int argc, char* argv[]) {
+    ModuleConfig config;
+    if (!config.parseArgs(argc, argv) || !config.parseConfig()) {
         return 1;
     }
 
-    std::string text = readFile(args.inputFile);
-    Lexer lexer(text);
-
-    auto mainBlock = parseBlock(lexer, true);
-    ModuleState module;
-    bool success = mainBlock && mainBlock->codegen(module) && module.writeIR(args.outputFile, !args.outputLL);
+    ModuleState module(config);
+    bool success = module.compileModule() && module.writeIR(config.outputFile, !config.outputLL);
     std::cout << (success ? "successfully compiled!" : "did not successfully compile :(") << std::endl;
     cleanup();
     return success ? 0 : 1;

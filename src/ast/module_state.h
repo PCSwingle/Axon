@@ -5,6 +5,7 @@
 #include <llvm/IR/Module.h>
 
 #include "generated.h"
+#include "build/module_config.h"
 
 namespace llvm {
     class AllocaInst;
@@ -23,18 +24,15 @@ class ModuleState {
     AllocaInst* createAlloca(GeneratedType* type, const std::string& name);
 
 public:
-    // TODO: should context be static?
     std::unique_ptr<LLVMContext> ctx;
     std::unique_ptr<IRBuilder<> > builder;
     std::unique_ptr<Module> module;
     std::unique_ptr<DataLayout> dl;
     Type* intPtrTy;
-    std::unordered_map<std::string, std::unique_ptr<Identifier> > identifiers;
 
-    std::vector<const GeneratedFunction*> functionStack;
-    std::vector<std::vector<std::string> > scopeStack;
+    const ModuleConfig& config;
 
-    ModuleState() {
+    explicit ModuleState(const ModuleConfig& config): config(config) {
         ctx = std::make_unique<LLVMContext>();
         module = std::make_unique<Module>("axon main module", *ctx);
         builder = std::make_unique<IRBuilder<> >(*ctx);
@@ -44,7 +42,26 @@ public:
         scopeStack.push_back(std::vector<std::string>());
     }
 
-    bool writeIR(const std::string& filename, bool bitcode = true);
+    // main compilation
+private:
+    std::filesystem::path unitToPath(const std::string& unit);
+
+    std::unordered_map<std::string, std::unique_ptr<UnitAST> > units;
+    std::vector<std::string> unitStack;
+
+    static std::unique_ptr<UnitAST> parseFile(const std::filesystem::path& filepath);
+
+public:
+    void registerUnit(const std::string& unit);
+
+    bool compileModule();
+
+    bool writeIR(const std::filesystem::path& outputFile, bool bitcode = true);
+
+    // codegen state
+    std::unordered_map<std::string, std::unique_ptr<Identifier> > identifiers;
+    std::vector<const GeneratedFunction*> functionStack;
+    std::vector<std::vector<std::string> > scopeStack;
 
     bool enterFunc(const GeneratedFunction* function);
 

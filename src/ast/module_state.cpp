@@ -10,17 +10,71 @@
 #include "logging.h"
 #include "generated.h"
 #include "ast.h"
+#include "utils.h"
 
 using namespace llvm;
 
-bool ModuleState::writeIR(const std::string& filename, const bool bitcode) {
-    if (DEBUG_CODEGEN_PRINT_MODULE) {
+std::filesystem::path ModuleState::unitToPath(const std::string& unit) {
+    auto path = config.moduleRoot();
+    for (const auto&& [i, segment]: enumerate(split(unit, "."))) {
+        if (i == 0) {
+            assert(segment == config.name && "external modules not implemented yet");
+        } else {
+            path /= segment;
+        }
+    }
+    path.replace_extension(".ax");
+    return path;
+}
+
+std::unique_ptr<UnitAST> ModuleState::parseFile(const std::filesystem::path& filepath) {
+    if (!is_regular_file(filepath)) {
+        return logError("file " + filepath.string() + " does not exist");
+    }
+
+    std::string text = readFile(filepath);
+    Lexer lexer(text);
+    return parseUnit(lexer);
+}
+
+void ModuleState::registerUnit(const std::string& unit) {
+    if (!units.contains(unit)) {
+        units[unit] = nullptr;
+        unitStack.push_back(unit);
+    }
+}
+
+bool ModuleState::compileModule() {
+    registerUnit(config.main);
+    while (unitStack.size() > 0) {
+        auto curUnit = unitStack.back();
+        unitStack.pop_back();
+        assert(units.contains(curUnit) && units[curUnit] == nullptr && "tried to process unit twice");
+
+        auto curFile = unitToPath(curUnit);
+        auto unitAst = parseFile(curFile);
+        if (!unitAst) {
+            return false;
+        }
+        unitAst->registerUnit(*this);
+        units[curUnit] = std::move(unitAst);
+    }
+    for (const auto& unitAst: units | std::views::values) {
+        if (!unitAst->codegen(*this)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool ModuleState::writeIR(const std::filesystem::path& outputFile, const bool bitcode) {
+    if constexpr (DEBUG_CODEGEN_PRINT_MODULE) {
         std::cout << "full ir:" << std::endl;
         module->print(outs(), nullptr);
     }
 
     std::error_code EC;
-    raw_fd_ostream out(filename, EC, sys::fs::OF_None);
+    raw_fd_ostream out(outputFile.string(), EC, sys::fs::OF_None);
     if (EC) {
         std::cerr << "Could not open file for writing: " << EC.message() << "\n";
         return false;

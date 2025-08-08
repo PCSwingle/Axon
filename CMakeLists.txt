@@ -2,13 +2,18 @@ cmake_minimum_required(VERSION 3.31)
 project(Axon)
 set(CMAKE_CXX_STANDARD 23)
 
-# argparse
+# dependencies
 include(FetchContent)
 FetchContent_Declare(
         argparse
         GIT_REPOSITORY https://github.com/p-ranav/argparse.git
 )
-FetchContent_MakeAvailable(argparse)
+FetchContent_Declare(
+        tomlplusplus
+        GIT_REPOSITORY https://github.com/marzer/tomlplusplus.git
+        GIT_TAG v3.4.0
+)
+FetchContent_MakeAvailable(argparse tomlplusplus)
 
 # llvm
 find_package(LLVM REQUIRED CONFIG)
@@ -26,10 +31,11 @@ add_executable(Axon
         src/ast/ast_parsing.cpp
         src/ast/ast_utils.cpp
         src/ast/ast_codegen.cpp
+        src/ast/ast_preregister.cpp
         src/ast/module_state.cpp
         src/ast/llvm_utils.cpp
 
         src/lexer/lexer.cpp
 )
 
-target_link_libraries(Axon LLVM argparse)
+target_link_libraries(Axon LLVM argparse tomlplusplus::tomlplusplus)

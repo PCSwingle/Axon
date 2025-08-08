@@ -127,7 +127,7 @@ std::unique_ptr<ExprAST> parseExpr(Lexer& lexer) {
     return std::move(stack.back());
 }
 
-std::unique_ptr<IfAST> parseIf(Lexer& lexer, bool onIf) {
+std::unique_ptr<IfAST> parseIf(Lexer& lexer, const bool onIf) {
     auto startToken = onIf ? KW_IF : KW_ELIF;
     if (lexer.curToken.rawToken != startToken) {
         return logError("Expected " + startToken);
@@ -517,18 +517,35 @@ std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
     return statement;
 }
 
+std::unique_ptr<TopLevelAST> parseTopLevel(Lexer& lexer) {
+    std::unique_ptr<TopLevelAST> statement;
 
-std::unique_ptr<BlockAST> parseBlock(Lexer& lexer, bool topLevel) {
-    if (!topLevel) {
-        if (lexer.curToken.rawToken != "{") {
-            return logError("Expected {");
-        }
-        lexer.consume();
+    if (lexer.curToken.rawToken == KW_FUNC || lexer.curToken.rawToken == KW_NATIVE) {
+        statement = parseFunc(lexer);
+    } else if (lexer.curToken.rawToken == KW_STRUCT) {
+        statement = parseStruct(lexer);
+    } else {
+        return logError("Expected top level statement, got " + lexer.curToken.rawToken);
     }
 
+    if (!statement) {
+        return nullptr;
+    } else if (lexer.curToken.type != TOK_DELIMITER) {
+        return logError("Expected delimiter after statement, got " + lexer.curToken.rawToken);
+    }
+
+    return statement;
+}
+
+// TODO: add UnitAST instead of top level, don't allow ifs, whiles, etc.
+std::unique_ptr<BlockAST> parseBlock(Lexer& lexer) {
+    if (lexer.curToken.rawToken != "{") {
+        return logError("Expected {");
+    }
+    lexer.consume();
+
     std::vector<std::unique_ptr<StatementAST> > statements;
-    auto expected = topLevel ? std::string(1, EOF) : "}";
-    while (lexer.curToken.rawToken != expected) {
+    while (lexer.curToken.rawToken != "}") {
         // TODO: don't allow bare semicolons?
         if (lexer.curToken.type == TOK_DELIMITER) {
             lexer.consume();
@@ -542,9 +559,28 @@ std::unique_ptr<BlockAST> parseBlock(Lexer& lexer, bool topLevel) {
     }
     lexer.consume();
 
-    auto block = std::make_unique<BlockAST>(std::move(statements));
-    if (DEBUG_AST_PRINT_BLOCK && topLevel) {
-        std::cout << block->toString() << std::endl;
+    return std::make_unique<BlockAST>(std::move(statements));
+}
+
+std::unique_ptr<UnitAST> parseUnit(Lexer& lexer) {
+    std::vector<std::unique_ptr<TopLevelAST> > statements;
+
+    while (lexer.curToken.rawToken != std::string(1, EOF)) {
+        // TODO: don't allow bare semicolons?
+        if (lexer.curToken.type == TOK_DELIMITER) {
+            lexer.consume();
+            continue;
+        }
+        if (auto statement = parseTopLevel(lexer)) {
+            statements.push_back(std::move(statement));
+        } else {
+            return nullptr;
+        }
     }
-    return block;
+
+    auto unit = std::make_unique<UnitAST>(std::move(statements));
+    if constexpr (DEBUG_AST_PRINT_UNIT) {
+        std::cout << unit->toString() << std::endl;
+    }
+    return unit;
 }

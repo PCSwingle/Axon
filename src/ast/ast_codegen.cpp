@@ -301,28 +301,18 @@ bool VarAST::codegen(ModuleState& state) {
 }
 
 bool StructAST::codegen(ModuleState& state) {
-    if (!state.registerStruct(structName, fields)) {
-        logError("duplicate identifier definition " + structName);
-        return false;
-    }
     return true;
 }
 
 
 bool FuncAST::codegen(ModuleState& state) {
-    // Create prototype
-    std::vector<Type*> argTypes;
-    for (const auto& sig: signature) {
-        argTypes.push_back(sig.type->getLLVMType(state));
-    }
-    FunctionType* type = FunctionType::get(returnType->getLLVMType(state), argTypes, false);
-    if (!state.registerFunction(funcName, signature, returnType, type)) {
-        logError("duplicate identifier definition " + funcName);
+    auto* genFunction = state.getFunction(funcName);
+    if (!genFunction) {
+        logError("inner functions not implemented yet");
         return false;
     }
-    auto* genFunction = state.getFunction(funcName);
-    auto* function = genFunction->function;
 
+    auto* function = genFunction->function;
     for (int i = 0; i < signature.size(); i++) {
         auto arg = function->getArg(i);
         arg->setName(signature[i].identifier);
@@ -466,5 +456,14 @@ bool BlockAST::codegen(ModuleState& state) {
         }
     }
     state.exitScope();
+    return true;
+}
+
+bool UnitAST::codegen(ModuleState& state) {
+    for (const auto& statement: statements) {
+        if (!statement->codegen(state)) {
+            return false;
+        }
+    }
     return true;
 }

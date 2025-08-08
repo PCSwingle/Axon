@@ -57,7 +57,6 @@ Type* GeneratedType::getLLVMType(ModuleState& state) {
     } else if (type == KW_VOID) {
         return Type::getVoidTy(*state.ctx);
     } else if (state.getStruct(type)) {
-        // TODO: this will have to change a little to allow self and pre referencing
         return PointerType::getUnqual(*state.ctx);
     }
 

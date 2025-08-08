@@ -124,3 +124,11 @@ std::string BlockAST::toString() {
     final += blockStr.substr(pos);
     return "Block {\n" + final + "\n}";
 }
+
+std::string UnitAST::toString() {
+    std::ostringstream result;
+    for (size_t i = 0; i < statements.size(); i++) {
+        result << statements[i]->toString();
+    }
+    return result.str();
+}

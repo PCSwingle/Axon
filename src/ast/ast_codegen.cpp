@@ -261,49 +261,15 @@ std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& st
 }
 
 
-// statements
-bool VarAST::codegen(ModuleState& state) {
-    auto val = expr->codegenValue(state);
-    if (!val) {
-        return false;
-    }
-
-    GeneratedType* varType = type.value_or(val->type);
-    if (definition && !state.registerVar(identifier, varType)) {
-        logError("duplicate identifier definition " + identifier);
-        return false;
-    }
-
-    auto* genVar = state.getVar(identifier);
-    if (!genVar) {
-        logError("reference to undefined variable " + identifier);
-        return false;
-    }
-    auto varPointer = genVar->toValue();
-    for (const auto& fieldName: fieldNames) {
-        varPointer->value = state.builder->CreateLoad(PointerType::getUnqual(*state.ctx),
-                                                      varPointer->value,
-                                                      fieldName);
-        varPointer = varPointer->getFieldPointer(state, fieldName);
-        if (!varPointer) {
-            return false;
-        }
-    }
-
-    if (varPointer->type != val->type) {
-        logError(
-            "wrong type assigned to variable: expected " + varPointer->type->toString() + ", got " +
-            val->type->toString());
-        return false;
-    }
-    state.builder->CreateStore(val->value, varPointer->value);
+// top level statements
+bool ImportAST::codegen(ModuleState& state) {
+    // TODO: register imports
     return true;
 }
 
 bool StructAST::codegen(ModuleState& state) {
     return true;
 }
-
 
 bool FuncAST::codegen(ModuleState& state) {
     auto* genFunction = state.getFunction(funcName);
@@ -347,6 +313,45 @@ bool FuncAST::codegen(ModuleState& state) {
         logError("Error verifying function " + funcName + ": " + result);
         return false;
     }
+    return true;
+}
+
+// statements
+bool VarAST::codegen(ModuleState& state) {
+    auto val = expr->codegenValue(state);
+    if (!val) {
+        return false;
+    }
+
+    GeneratedType* varType = type.value_or(val->type);
+    if (definition && !state.registerVar(identifier, varType)) {
+        logError("duplicate identifier definition " + identifier);
+        return false;
+    }
+
+    auto* genVar = state.getVar(identifier);
+    if (!genVar) {
+        logError("reference to undefined variable " + identifier);
+        return false;
+    }
+    auto varPointer = genVar->toValue();
+    for (const auto& fieldName: fieldNames) {
+        varPointer->value = state.builder->CreateLoad(PointerType::getUnqual(*state.ctx),
+                                                      varPointer->value,
+                                                      fieldName);
+        varPointer = varPointer->getFieldPointer(state, fieldName);
+        if (!varPointer) {
+            return false;
+        }
+    }
+
+    if (varPointer->type != val->type) {
+        logError(
+            "wrong type assigned to variable: expected " + varPointer->type->toString() + ", got " +
+            val->type->toString());
+        return false;
+    }
+    state.builder->CreateStore(val->value, varPointer->value);
     return true;
 }
 

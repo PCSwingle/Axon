@@ -16,6 +16,8 @@ struct GeneratedValue;
 
 class ModuleState;
 
+class BlockAST;
+
 // abstracts
 class AST {
 public:
@@ -141,32 +143,23 @@ public:
     std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
 };
 
-// statements
-class VarAST : public StatementAST {
-    bool definition;
-    std::string identifier;
-    std::vector<std::string> fieldNames;
-    std::optional<GeneratedType*> type;
-    std::unique_ptr<ExprAST> expr;
+// top level
+class ImportAST : public TopLevelAST {
+    std::string unit;
+    // from alias -> actual name
+    std::unordered_map<std::string, std::string> aliases;
 
 public:
-    explicit VarAST(const bool definition,
-                    std::string identifier,
-                    std::vector<std::string> fieldNames,
-                    std::optional<GeneratedType*> type,
-                    std::unique_ptr<ExprAST> expr): definition(definition),
-                                                    identifier(std::move(identifier)),
-                                                    fieldNames(std::move(fieldNames)),
-                                                    type(std::move(type)),
-                                                    expr(std::move(expr)) {
+    explicit ImportAST(std::string unit, std::unordered_map<std::string, std::string> aliases): unit(std::move(unit)),
+        aliases(std::move(aliases)) {
     }
 
     std::string toString() override;
 
+    bool preregister(ModuleState& state) override;
+
     bool codegen(ModuleState& state) override;
 };
-
-class BlockAST;
 
 struct SigArg {
     GeneratedType* type;
@@ -203,7 +196,7 @@ public:
     bool codegen(ModuleState& state) override;
 };
 
-class StructAST : public TopLevelAST, public StatementAST {
+class StructAST : public TopLevelAST {
     std::string structName;
     std::vector<std::tuple<std::string, GeneratedType*> > fields;
 
@@ -217,6 +210,31 @@ public:
     std::string toString() override;
 
     bool preregister(ModuleState& state) override;
+
+    bool codegen(ModuleState& state) override;
+};
+
+// statements
+class VarAST : public StatementAST {
+    bool definition;
+    std::string identifier;
+    std::vector<std::string> fieldNames;
+    std::optional<GeneratedType*> type;
+    std::unique_ptr<ExprAST> expr;
+
+public:
+    explicit VarAST(const bool definition,
+                    std::string identifier,
+                    std::vector<std::string> fieldNames,
+                    std::optional<GeneratedType*> type,
+                    std::unique_ptr<ExprAST> expr): definition(definition),
+                                                    identifier(std::move(identifier)),
+                                                    fieldNames(std::move(fieldNames)),
+                                                    type(std::move(type)),
+                                                    expr(std::move(expr)) {
+    }
+
+    std::string toString() override;
 
     bool codegen(ModuleState& state) override;
 };
@@ -266,7 +284,7 @@ public:
     bool codegen(ModuleState& state) override;
 };
 
-// block
+// other
 class BlockAST : public AST {
     std::vector<std::unique_ptr<StatementAST> > statements;
 
@@ -307,6 +325,8 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer);
 std::unique_ptr<CallExprAST> parseCall(Lexer& lexer);
 
 std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer);
+
+std::unique_ptr<ImportAST> parseImport(Lexer& lexer);
 
 std::unique_ptr<FuncAST> parseFunc(Lexer& lexer);
 

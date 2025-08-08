@@ -7,11 +7,8 @@
 
 using namespace llvm;
 
-bool StructAST::preregister(ModuleState& state) {
-    if (!state.registerStruct(structName, fields)) {
-        logError("duplicate identifier definition " + structName);
-        return false;
-    }
+bool ImportAST::preregister(ModuleState& state) {
+    state.registerUnit(unit);
     return true;
 }
 
@@ -28,6 +25,13 @@ bool FuncAST::preregister(ModuleState& state) {
     return true;
 }
 
+bool StructAST::preregister(ModuleState& state) {
+    if (!state.registerStruct(structName, fields)) {
+        logError("duplicate identifier definition " + structName);
+        return false;
+    }
+    return true;
+}
 
 bool UnitAST::registerUnit(ModuleState& state) {
     for (const auto& statement: statements) {

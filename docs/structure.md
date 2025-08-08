@@ -14,14 +14,13 @@ Only files that are directly imported are included.
 
 TODO: should external modules be bundled into the compilation unit? this way you wouldn't need to include i.e. entire
 stdlib. Middle ground could be: external modules are compiled in separate compilation unit, but only the parts you
-actually use (if this is even possible?).
+actually use (if this is even possible or good?).
 
 #### Importing
 
 To export a function or struct from a file, simply make it `public`. Exported objects will be under the namespace
-`module.dir.file.object` starting from the dir of `axon.toml`. This can be imported anywhere from `import module` to
-`import module.dir.file.object` to be used as `module`, `dir`, `file`, or `object`, or as an alias using `as alias`. For
-example, in a project with the following structure:
+`module.dir.file.object` starting from the dir of `axon.toml`. This can be imported with the following statement:
+`from module.dir.file import object, object2 as obj2`. For example, in a project with the following structure:
 
 ```
 .
@@ -40,19 +39,14 @@ public func add(a: int, b: int): int {
 }
 
 ### main.ax ###
-# We can import the entire module...
-import my_module
+# We can import the function normally...
+from my_module.dir.test import add
 
-# ...or just the function we want.
-import my_module.dir.test.add
-
-# We can also use an alias:
-import my_module.dir.test as add_file
+# ...or use an alias:
+from my_module.dir.test import add as add_func
 
 func main() {
-    # It can now be called in multiple ways
-    my_module.dir.test.add(2, 2)
     add(2, 2)
-    add_file.add(2, 2)
+    add_func(2, 2)
 }
 ```

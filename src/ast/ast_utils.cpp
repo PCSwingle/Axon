@@ -39,7 +39,6 @@ std::string AccessorExprAST::toString() {
     return "(" + structExpr->toString() + ")." + fieldName;
 }
 
-
 std::string ConstructorExprAST::toString() {
     std::ostringstream result;
     for (auto& [fieldName, fieldValue]: values) {
@@ -51,11 +50,8 @@ std::string ConstructorExprAST::toString() {
     return "~" + structName + " { " + s + "}";
 }
 
-
-std::string VarAST::toString() {
-    return "Var(" + (type.has_value() ? type.value()->toString() + " " : "") + identifier + " = " + expr
-           ->toString()
-           + ")";
+std::string ImportAST::toString() {
+    return "import " + unit;
 }
 
 std::string SigArg::toString() {
@@ -89,6 +85,11 @@ std::string StructAST::toString() {
     return "Struct " + structName + " {" + structName + ", " + result.str() + "}";
 }
 
+std::string VarAST::toString() {
+    return "Var(" + (type.has_value() ? type.value()->toString() + " " : "") + identifier + " = " + expr
+           ->toString()
+           + ")";
+}
 
 std::string IfAST::toString() {
     return "If(" + expr->toString() + ") " + block->toString();

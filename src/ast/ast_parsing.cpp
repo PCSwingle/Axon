@@ -354,6 +354,56 @@ std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer) {
     return std::make_unique<ConstructorExprAST>(structName, std::move(values));
 }
 
+std::unique_ptr<ImportAST> parseImport(Lexer& lexer) {
+    if (lexer.curToken.rawToken != KW_FROM) {
+        return logError("expected from, got " + lexer.curToken.rawToken);
+    }
+    lexer.consume();
+
+    if (lexer.curToken.type != TOK_IDENTIFIER) {
+        return logError("expected import unit, got " + lexer.curToken.rawToken);
+    }
+    auto unit = lexer.curToken.rawToken;
+    lexer.consume();
+
+    while (lexer.curToken.rawToken != KW_IMPORT) {
+        if (lexer.curToken.rawToken != ".") {
+            return logError("expected import, got " + lexer.curToken.rawToken);
+        }
+        lexer.consume();
+        if (lexer.curToken.type != TOK_IDENTIFIER) {
+            return logError("expected import unit, got " + lexer.curToken.rawToken);
+        }
+        unit += lexer.curToken.rawToken;
+        lexer.consume();
+    }
+    lexer.consume();
+
+    std::unordered_map<std::string, std::string> aliases;
+    while (lexer.curToken.type != TOK_DELIMITER) {
+        if (lexer.curToken.type != TOK_IDENTIFIER) {
+            return logError("expected import identifier, got " + lexer.curToken.rawToken);
+        }
+        auto imported = lexer.curToken.rawToken;
+        std::string alias;
+        lexer.consume();
+        if (lexer.curToken.rawToken == KW_AS) {
+            lexer.consume();
+            if (lexer.curToken.type != TOK_IDENTIFIER) {
+                return logError("expected import alias, got " + lexer.curToken.rawToken);
+            }
+            alias = lexer.curToken.rawToken;
+        } else {
+            alias = imported;
+        }
+        aliases[alias] = imported;
+    }
+    if (aliases.size() == 0) {
+        return logError("import statement with nothing imported found");
+    }
+    return std::make_unique<ImportAST>(unit, std::move(aliases));
+}
+
 std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
     bool native = false;
     if (lexer.curToken.rawToken == KW_NATIVE) {
@@ -494,8 +544,6 @@ std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
 
     if (lexer.curToken.rawToken == KW_FUNC || lexer.curToken.rawToken == KW_NATIVE) {
         statement = parseFunc(lexer);
-    } else if (lexer.curToken.rawToken == KW_STRUCT) {
-        statement = parseStruct(lexer);
     } else if (lexer.curToken.rawToken == KW_IF) {
         statement = parseIf(lexer);
     } else if (lexer.curToken.rawToken == KW_WHILE) {
@@ -537,7 +585,6 @@ std::unique_ptr<TopLevelAST> parseTopLevel(Lexer& lexer) {
     return statement;
 }
 
-// TODO: add UnitAST instead of top level, don't allow ifs, whiles, etc.
 std::unique_ptr<BlockAST> parseBlock(Lexer& lexer) {
     if (lexer.curToken.rawToken != "{") {
         return logError("Expected {");

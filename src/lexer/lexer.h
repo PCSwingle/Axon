@@ -134,7 +134,10 @@ inline const std::unordered_set<std::string> VALUES{
     KEYWORD(RETURN, "return") \
     KEYWORD(NATIVE, "native") \
     KEYWORD(STRUCT, "struct") \
-    KEYWORD(LET, "let")
+    KEYWORD(LET, "let") \
+    KEYWORD(FROM, "from") \
+    KEYWORD(IMPORT, "import") \
+    KEYWORD(AS, "as")
 
 #define KEYWORD(NAME, STR) const std::string KW_##NAME = STR;
 X_KW

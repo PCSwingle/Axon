@@ -61,7 +61,7 @@ public:
 
     bool compileModule();
 
-    bool writeIR(const std::filesystem::path& outputFile, bool bitcode = true);
+    bool writeIR();
 
     // codegen state
     std::unordered_map<std::string, std::unique_ptr<Identifier> > identifiers;

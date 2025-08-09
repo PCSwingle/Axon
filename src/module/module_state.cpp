@@ -5,7 +5,6 @@
 #include <llvm/Passes/CodeGenPassBuilder.h>
 #include <llvm/Support/FileSystem.h>
 
-#include "debug_consts.h"
 #include "module_state.h"
 #include "logging.h"
 #include "generated.h"
@@ -106,24 +105,29 @@ bool ModuleState::compileModule() {
     return true;
 }
 
-bool ModuleState::writeIR(const std::filesystem::path& outputFile, const bool bitcode) {
-    if constexpr (DEBUG_CODEGEN_PRINT_MODULE) {
-        std::cout << "full ir:" << std::endl;
-        module->print(outs(), nullptr);
+bool ModuleState::writeIR() {
+    raw_fd_ostream* out;
+    if (config.outputFile.has_value()) {
+        std::error_code EC;
+        out = new raw_fd_ostream(config.outputFile.value().string(), EC, sys::fs::OF_None);
+        if (EC) {
+            std::cerr << "Could not open file for writing: " << EC.message() << "\n";
+            return false;
+        }
+    } else {
+        out = &outs();
     }
 
-    std::error_code EC;
-    raw_fd_ostream out(outputFile.string(), EC, sys::fs::OF_None);
-    if (EC) {
-        std::cerr << "Could not open file for writing: " << EC.message() << "\n";
-        return false;
-    }
-    if (bitcode) {
-        WriteBitcodeToFile(*module, out);
+    if (config.outputLL) {
+        module->print(*out, nullptr);
     } else {
-        module->print(out, nullptr);
+        WriteBitcodeToFile(*module, *out);
     }
-    out.close();
+
+    if (config.outputFile.has_value()) {
+        out->close();
+        delete out;
+    }
     return true;
 }
 

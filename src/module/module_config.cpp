@@ -7,7 +7,7 @@ bool ModuleConfig::parseArgs(int argc, char* argv[]) {
     argparse::ArgumentParser program("Axon");
     program.add_argument("build-file").default_value(".").help("the build file");
 
-    program.add_argument("--output-file", "-o").help("the output file");
+    program.add_argument("--output-file", "-o").help("the output file or - to output to stdout");
     program.add_argument("--output-ll", "-l").help("output human readable ir instead of bitcode").flag();
 
     try {
@@ -23,9 +23,13 @@ bool ModuleConfig::parseArgs(int argc, char* argv[]) {
     if (auto file = program.present("output-file")) {
         outputFile = *file;
     } else {
-        auto ext = outputLL ? ".ll" : ".bc";
-        outputFile = buildFile;
-        outputFile.replace_extension(ext);
+        if (file == "-") {
+            outputFile = std::optional<std::filesystem::path>();
+        } else {
+            auto ext = outputLL ? ".ll" : ".bc";
+            outputFile = buildFile;
+            outputFile.value().replace_extension(ext);
+        }
     }
     return true;
 }

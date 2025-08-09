@@ -8,7 +8,7 @@ public:
     std::string main;
 
     std::filesystem::path buildFile;
-    std::filesystem::path outputFile;
+    std::optional<std::filesystem::path> outputFile;
 
     bool outputLL;
 

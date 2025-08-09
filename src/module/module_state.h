@@ -5,7 +5,7 @@
 #include <llvm/IR/Module.h>
 
 #include "generated.h"
-#include "build/module_config.h"
+#include "module/module_config.h"
 
 namespace llvm {
     class AllocaInst;

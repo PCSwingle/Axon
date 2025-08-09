@@ -4,7 +4,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "ast.h"
+#include "ast/ast.h"
 #include "lexer/lexer.h"
 
 

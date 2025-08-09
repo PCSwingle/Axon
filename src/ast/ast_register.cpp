@@ -1,9 +1,9 @@
 #include <llvm/IR/DerivedTypes.h>
 
 #include "ast.h"
-#include "generated.h"
+#include "module/generated.h"
 #include "logging.h"
-#include "module_state.h"
+#include "module/module_state.h"
 
 using namespace llvm;
 

@@ -5,7 +5,7 @@
 #include <llvm/IR/Type.h>
 
 #include "llvm_utils.h"
-#include "module_state.h"
+#include "module/module_state.h"
 
 using namespace llvm;
 

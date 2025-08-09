@@ -6,7 +6,7 @@
 
 #include "ast.h"
 #include "logging.h"
-#include "module_state.h"
+#include "module/module_state.h"
 #include "lexer/lexer.h"
 
 using namespace llvm;

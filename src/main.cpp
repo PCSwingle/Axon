@@ -4,8 +4,8 @@
 #include "utils.h"
 #include "lexer/lexer.h"
 #include "ast/ast.h"
-#include "ast/module_state.h"
-#include "build/module_config.h"
+#include "module/module_state.h"
+#include "module/module_config.h"
 
 void cleanup() {
     // This makes it easier to find leaks

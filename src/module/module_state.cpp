@@ -9,7 +9,7 @@
 #include "module_state.h"
 #include "logging.h"
 #include "generated.h"
-#include "ast.h"
+#include "ast/ast.h"
 #include "utils.h"
 
 using namespace llvm;
@@ -181,7 +181,6 @@ Identifier* ModuleState::getIdentifier(const std::string& identifier) {
         return nullptr;
     }
 }
-
 
 GeneratedVariable* ModuleState::getVar(const std::string& identifier) {
     auto val = getIdentifier(identifier);

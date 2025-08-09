@@ -6,7 +6,7 @@
 #include "debug_consts.h"
 
 #include "ast.h"
-#include "generated.h"
+#include "module/generated.h"
 
 std::unique_ptr<ExprAST> _parseExprNoBinopNoAccessor(Lexer& lexer) {
     // doesn't check for binops; use parseExpr

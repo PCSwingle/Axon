@@ -1,10 +1,10 @@
 #include <llvm/IR/DerivedTypes.h>
 
-#include "ast.h"
 #include "generated.h"
+#include "ast/ast.h"
 #include "logging.h"
-#include "module_state.h"
-#include "llvm_utils.h"
+#include "module/module_state.h"
+#include "ast/llvm_utils.h"
 
 
 std::unordered_map<std::string, GeneratedType*> GeneratedType::registeredTypes{};

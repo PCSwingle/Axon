@@ -9,17 +9,6 @@
 
 std::unordered_map<std::string, GeneratedType*> GeneratedType::registeredTypes{};
 
-std::string GeneratedType::fullyQualified(ModuleState& state) {
-    GeneratedStruct* genStruct;
-    if (state.identifiers.contains(type) &&
-        ((genStruct = std::get_if<GeneratedStruct>(state.identifiers.at(type).get())))
-    ) {
-        return genStruct->type->type;
-    } else {
-        return type;
-    }
-}
-
 GeneratedType* GeneratedType::get(const std::string& type) {
     if (!registeredTypes.contains(type)) {
         auto* generatedType = new GeneratedType(type);
@@ -48,10 +37,6 @@ bool GeneratedType::isPrimitive() {
 
 bool GeneratedType::isFloating() {
     return type == KW_FLOAT || type == KW_DOUBLE;
-}
-
-bool GeneratedType::isEqual(ModuleState& state, GeneratedType* other) {
-    return fullyQualified(state) == other->fullyQualified(state);
 }
 
 GeneratedStruct* GeneratedType::getGenStruct(ModuleState& state) {

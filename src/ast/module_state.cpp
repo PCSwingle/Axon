@@ -229,12 +229,12 @@ bool ModuleState::registerGlobalStruct(const std::string& unit,
     for (auto& [fieldName, fieldType]: fields) {
         elements.push_back(fieldType->getLLVMType(*this));
     }
-    auto* structType = StructType::get(*ctx, elements);
+    auto* structType = StructType::create(*ctx, elements, mergeGlobalIdentifier(unit, identifier));
     return registerGlobalIdentifier(unit,
                                     identifier,
                                     std::make_unique<Identifier>(
                                         GeneratedStruct(
-                                            GeneratedType::get(mergeGlobalIdentifier(unit, identifier)),
+                                            GeneratedType::get(identifier),
                                             fields,
                                             structType)));
 }

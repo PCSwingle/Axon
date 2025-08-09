@@ -136,7 +136,7 @@ std::unique_ptr<GeneratedValue> BinaryOpExprAST::codegenValue(ModuleState& state
         return nullptr;
     }
 
-    if (!L->type->isEqual(state, R->type)) {
+    if (L->type != R->type) {
         return logError(
             "binary expression between two values not the same type; got " + L->type->toString() + " and " + R->type->
             toString() + ". Expression: " + this->toString());
@@ -247,7 +247,7 @@ std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& st
         if (!fieldPointer) {
             return nullptr;
         }
-        if (!fieldPointer->type->isEqual(state, fieldValue->type)) {
+        if (fieldPointer->type != fieldValue->type) {
             return logError(
                 "invalid type for field " + fieldName + "; expected " + fieldPointer->type->toString() + ", got " +
                 fieldValue->type->toString());
@@ -345,7 +345,7 @@ bool VarAST::codegen(ModuleState& state) {
         }
     }
 
-    if (!varPointer->type->isEqual(state, val->type)) {
+    if (varPointer->type != val->type) {
         logError(
             "wrong type assigned to variable: expected " + varPointer->type->toString() + ", got " +
             val->type->toString());
@@ -437,7 +437,7 @@ bool ReturnAST::codegen(ModuleState& state) {
         if (!returnValue) {
             return false;
         }
-        if (!returnValue->type->isEqual(state, returnType)) {
+        if (returnValue->type != returnType) {
             logError("expected return type of " + returnType->toString() + ", got " + returnValue->type->toString());
             return false;
         }

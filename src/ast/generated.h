@@ -28,17 +28,16 @@ typedef std::variant<GeneratedVariable, GeneratedFunction, GeneratedStruct> Iden
 
 /// Similar to LLVM, types are pointers to singletons that aren't freed until program end (flyweights).
 /// Every individual type is a pointer to the same object.
+/// Note: types are identified solely by the identifier used in their unit, so types between units
+/// are not guaranteed equal.
 struct GeneratedType {
 private:
     static std::unordered_map<std::string, GeneratedType*> registeredTypes;
 
-    // TODO: with modules / imports this will need to become more complex
     std::string type;
 
     explicit GeneratedType(std::string type): type(std::move(type)) {
     }
-
-    std::string fullyQualified(ModuleState& state);
 
 public:
     static GeneratedType* get(const std::string& type);
@@ -55,9 +54,6 @@ public:
 
     bool isFloating();
 
-    bool isEqual(ModuleState& state, GeneratedType* other);
-
-    // Will automatically resolve any type aliases. It sucks that this is variable on state but whatever :)
     GeneratedStruct* getGenStruct(ModuleState& state);
 
     Type* getLLVMType(ModuleState& state);

@@ -4,9 +4,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "ast/ast.h"
-#include "lexer/lexer.h"
-
+#include "typedefs.h"
 
 namespace llvm {
     class Function;
@@ -20,11 +18,7 @@ using namespace llvm;
 
 class ModuleState;
 
-struct GeneratedVariable;
-struct GeneratedFunction;
-struct GeneratedStruct;
-
-typedef std::variant<GeneratedVariable, GeneratedFunction, GeneratedStruct> Identifier;
+struct SigArg;
 
 /// Similar to LLVM, types are pointers to singletons that aren't freed until program end (flyweights).
 /// Every individual type is a pointer to the same object.

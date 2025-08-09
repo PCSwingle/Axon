@@ -1,11 +1,11 @@
 #pragma once
-#include <variant>
+
+#include <filesystem>
 
 #include "llvm/IR/IRBuilder.h"
-#include <llvm/IR/Module.h>
+#include "llvm/IR/Module.h"
 
-#include "generated.h"
-#include "module/module_config.h"
+#include "typedefs.h"
 
 namespace llvm {
     class AllocaInst;
@@ -13,7 +13,10 @@ namespace llvm {
 
 using namespace llvm;
 
+class ModuleConfig;
+
 struct SigArg;
+class UnitAST;
 
 struct GeneratedType;
 struct GeneratedStruct;
@@ -32,15 +35,9 @@ public:
 
     const ModuleConfig& config;
 
-    explicit ModuleState(const ModuleConfig& config): config(config) {
-        ctx = std::make_unique<LLVMContext>();
-        module = std::make_unique<Module>("axon main module", *ctx);
-        builder = std::make_unique<IRBuilder<> >(*ctx);
-        // TODO: set target triple here
-        dl = std::make_unique<DataLayout>();
-        intPtrTy = dl->getIntPtrType(*ctx);
-        scopeStack.push_back(std::vector<std::string>());
-    }
+    explicit ModuleState(const ModuleConfig& config);
+
+    ~ModuleState();
 
 private:
     // main compilation

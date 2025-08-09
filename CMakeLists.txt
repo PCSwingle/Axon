@@ -26,6 +26,8 @@ add_definitions(${LLVM_DEFINITIONS})
 
 add_executable(Axon
         src/main.cpp
+        src/utils.cpp
+        src/logging.cpp
 
         src/ast/ast_parsing.cpp
         src/ast/ast_utils.cpp
@@ -35,6 +37,7 @@ add_executable(Axon
 
         src/module/generated.cpp
         src/module/module_state.cpp
+        src/module/module_config.cpp
 
         src/lexer/lexer.cpp
 )

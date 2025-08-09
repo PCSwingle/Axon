@@ -1,11 +1,5 @@
 #pragma once
-#include <iostream>
 
-inline std::nullptr_t logError(const std::string& error) {
-    std::cerr << "Parsing error: " << error << std::endl;
-    return nullptr;
-}
+std::nullptr_t logError(const std::string& error);
 
-inline void logWarning(const std::string& warning) {
-    std::cerr << "Warning: " << warning << std::endl;
-}
+void logWarning(const std::string& warning);

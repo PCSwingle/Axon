@@ -2,7 +2,7 @@
 
 #include "ast.h"
 #include "module/generated.h"
-#include "logging.h"
+#include "module/module_config.h"
 #include "module/module_state.h"
 
 using namespace llvm;

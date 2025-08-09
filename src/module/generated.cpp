@@ -5,7 +5,7 @@
 #include "logging.h"
 #include "module/module_state.h"
 #include "ast/llvm_utils.h"
-
+#include "lexer/lexer.h"
 
 std::unordered_map<std::string, GeneratedType*> GeneratedType::registeredTypes{};
 

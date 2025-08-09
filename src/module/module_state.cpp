@@ -9,10 +9,24 @@
 #include "module_state.h"
 #include "logging.h"
 #include "generated.h"
+#include "module_config.h"
 #include "ast/ast.h"
 #include "utils.h"
+#include "lexer/lexer.h"
 
 using namespace llvm;
+
+ModuleState::ModuleState(const ModuleConfig& config): config(config) {
+    ctx = std::make_unique<LLVMContext>();
+    module = std::make_unique<Module>("axon main module", *ctx);
+    builder = std::make_unique<IRBuilder<> >(*ctx);
+    // TODO: set target triple here
+    dl = std::make_unique<DataLayout>();
+    intPtrTy = dl->getIntPtrType(*ctx);
+    scopeStack.push_back(std::vector<std::string>());
+}
+
+ModuleState::~ModuleState() = default;
 
 std::filesystem::path ModuleState::unitToPath(const std::string& unit) {
     auto path = config.moduleRoot();
@@ -30,7 +44,6 @@ std::filesystem::path ModuleState::unitToPath(const std::string& unit) {
 std::string ModuleState::mergeGlobalIdentifier(const std::string& unit, const std::string& identifier) {
     return unit + "." + identifier;
 }
-
 
 void ModuleState::registerUnit(const std::string& unit) {
     if (!units.contains(unit)) {

@@ -1,10 +1,12 @@
 #pragma once
+
 #include <algorithm>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <iostream>
+#include <ranges>
 #include <vector>
 
 #include "debug_consts.h"
@@ -81,7 +83,7 @@ inline const std::unordered_map<char, std::string> ESCAPES{
 inline const std::vector<std::string> ALLOPS = []() {
     std::vector<std::string> allOps;
     allOps.reserve(BINOPS.size() + UNOPS.size() + VAROPS.size());
-    for (const auto& [str, _]: BINOPS) {
+    for (const auto& str: BINOPS | std::views::keys) {
         allOps.push_back(str);
     }
     for (const auto& str: UNOPS) {

@@ -1,8 +1,10 @@
 #pragma once
+
 #include <memory>
 #include <optional>
 #include <ranges>
 #include <vector>
+#include <unordered_map>
 
 namespace llvm {
     class Value;

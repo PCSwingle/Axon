@@ -1,9 +1,8 @@
 #include <fstream>
 #include <iostream>
 
-#include "utils.h"
-#include "lexer/lexer.h"
 #include "ast/ast.h"
+#include "module/generated.h"
 #include "module/module_state.h"
 #include "module/module_config.h"
 

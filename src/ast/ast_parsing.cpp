@@ -370,6 +370,7 @@ std::unique_ptr<ImportAST> parseImport(Lexer& lexer) {
         if (lexer.curToken.rawToken != ".") {
             return logError("expected import, got " + lexer.curToken.rawToken);
         }
+        unit += ".";
         lexer.consume();
         if (lexer.curToken.type != TOK_IDENTIFIER) {
             return logError("expected import unit, got " + lexer.curToken.rawToken);
@@ -572,6 +573,8 @@ std::unique_ptr<TopLevelAST> parseTopLevel(Lexer& lexer) {
         statement = parseFunc(lexer);
     } else if (lexer.curToken.rawToken == KW_STRUCT) {
         statement = parseStruct(lexer);
+    } else if (lexer.curToken.rawToken == KW_FROM) {
+        statement = parseImport(lexer);
     } else {
         return logError("Expected top level statement, got " + lexer.curToken.rawToken);
     }

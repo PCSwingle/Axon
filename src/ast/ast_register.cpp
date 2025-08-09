@@ -8,13 +8,13 @@
 using namespace llvm;
 
 bool ImportAST::preregister(ModuleState& state, const std::string& unit) {
-    state.registerUnit(unit);
+    state.registerUnit(this->unit);
     return true;
 }
 
 bool ImportAST::postregister(ModuleState& state, const std::string& unit) {
     for (const auto& [identifier, alias]: aliases) {
-        if (!state.useGlobalIdentifier(unit, identifier, alias)) {
+        if (!state.useGlobalIdentifier(this->unit, identifier, alias)) {
             return false;
         }
     }

@@ -139,7 +139,7 @@ std::unique_ptr<GeneratedValue> BinaryOpExprAST::codegenValue(ModuleState& state
     if (!L->type->isEqual(state, R->type)) {
         return logError(
             "binary expression between two values not the same type; got " + L->type->toString() + " and " + R->type->
-            toString());
+            toString() + ". Expression: " + this->toString());
     }
     bool floating = L->type->isFloating();
 
@@ -265,7 +265,6 @@ std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& st
 
 // top level statements
 bool ImportAST::codegen(ModuleState& state) {
-    // TODO: register imports
     return true;
 }
 

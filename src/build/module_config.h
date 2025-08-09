@@ -34,9 +34,8 @@ public:
             outputFile = *file;
         } else {
             auto ext = outputLL ? ".ll" : ".bc";
-            std::filesystem::path p(buildFile);
-            p.replace_extension(ext);
-            outputFile = p.string();
+            outputFile = buildFile;
+            outputFile.replace_extension(ext);
         }
         return true;
     }

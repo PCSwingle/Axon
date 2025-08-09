@@ -9,6 +9,17 @@
 
 std::unordered_map<std::string, GeneratedType*> GeneratedType::registeredTypes{};
 
+std::string GeneratedType::fullyQualified(ModuleState& state) {
+    GeneratedStruct* genStruct;
+    if (state.identifiers.contains(type) &&
+        ((genStruct = std::get_if<GeneratedStruct>(state.identifiers.at(type).get())))
+    ) {
+        return genStruct->type->type;
+    } else {
+        return type;
+    }
+}
+
 GeneratedType* GeneratedType::get(const std::string& type) {
     if (!registeredTypes.contains(type)) {
         auto* generatedType = new GeneratedType(type);
@@ -39,6 +50,10 @@ bool GeneratedType::isFloating() {
     return type == KW_FLOAT || type == KW_DOUBLE;
 }
 
+bool GeneratedType::isEqual(ModuleState& state, GeneratedType* other) {
+    return fullyQualified(state) == other->fullyQualified(state);
+}
+
 GeneratedStruct* GeneratedType::getGenStruct(ModuleState& state) {
     return state.getStruct(type);
 }
@@ -56,17 +71,22 @@ Type* GeneratedType::getLLVMType(ModuleState& state) {
         return Type::getInt1Ty(*state.ctx);
     } else if (type == KW_VOID) {
         return Type::getVoidTy(*state.ctx);
-    } else if (state.getStruct(type)) {
+    } else if (TYPES.contains(type)) {
+        logError("type " + type + " not implemented yet");
+        assert(false);
+    } else {
+        // Checking if the struct actually exists here would be a massive PITA
+        // for such marginally low value, so we just assume it's a pointer.
+        // Figuring out structs without pointers is going to be piss awful given
+        // we can't allow recursive types.
         return PointerType::getUnqual(*state.ctx);
     }
-
-    return logError("type " + type + " not implemented yet");
 }
 
 std::unique_ptr<GeneratedValue> GeneratedValue::getFieldPointer(ModuleState& state, const std::string& fieldName) {
     auto genStruct = type->getGenStruct(state);
     if (!genStruct) {
-        return logError("type " + type->toString() + " does not have fields to access");
+        return logError("type " + type->toString() + " is not a struct or does not exist");
     }
     auto fieldIndex = genStruct->getFieldIndex(fieldName);
     if (!fieldIndex.has_value()) {

@@ -30,7 +30,11 @@ public:
 
 class TopLevelAST : public AST {
 public:
-    virtual bool preregister(ModuleState& state) = 0;
+    // Registers this statement on an the global, importable level
+    virtual bool preregister(ModuleState& state, const std::string& unit) = 0;
+
+    // Registers this statement locally at start of unit compilation to allow antecedent referencing
+    virtual bool postregister(ModuleState& state, const std::string& unit) = 0;
 };
 
 class StatementAST : public AST {
@@ -146,17 +150,21 @@ public:
 // top level
 class ImportAST : public TopLevelAST {
     std::string unit;
-    // from alias -> actual name
+    // identifier -> alias
     std::unordered_map<std::string, std::string> aliases;
 
 public:
-    explicit ImportAST(std::string unit, std::unordered_map<std::string, std::string> aliases): unit(std::move(unit)),
-        aliases(std::move(aliases)) {
+    explicit ImportAST(std::string unit,
+                       std::unordered_map<std::string, std::string> aliases): unit(std::move(
+                                                                                  unit)),
+                                                                              aliases(std::move(aliases)) {
     }
 
     std::string toString() override;
 
-    bool preregister(ModuleState& state) override;
+    bool preregister(ModuleState& state, const std::string& unit) override;
+
+    bool postregister(ModuleState& state, const std::string& unit) override;
 
     bool codegen(ModuleState& state) override;
 };
@@ -191,7 +199,9 @@ public:
 
     std::string toString() override;
 
-    bool preregister(ModuleState& state) override;
+    bool preregister(ModuleState& state, const std::string& unit) override;
+
+    bool postregister(ModuleState& state, const std::string& unit) override;
 
     bool codegen(ModuleState& state) override;
 };
@@ -209,7 +219,9 @@ public:
 
     std::string toString() override;
 
-    bool preregister(ModuleState& state) override;
+    bool preregister(ModuleState& state, const std::string& unit) override;
+
+    bool postregister(ModuleState& state, const std::string& unit) override;
 
     bool codegen(ModuleState& state) override;
 };
@@ -298,15 +310,17 @@ public:
 };
 
 class UnitAST : public AST {
+    std::string unit;
     std::vector<std::unique_ptr<TopLevelAST> > statements;
 
 public:
-    explicit UnitAST(std::vector<std::unique_ptr<TopLevelAST> > statements): statements(std::move(statements)) {
+    explicit UnitAST(const std::string& unit, std::vector<std::unique_ptr<TopLevelAST> > statements): unit(unit),
+        statements(std::move(statements)) {
     }
 
     std::string toString() override;
 
-    bool registerUnit(ModuleState& state);
+    bool preregisterUnit(ModuleState& state);
 
     bool codegen(ModuleState& state) override;
 };
@@ -338,4 +352,4 @@ std::unique_ptr<TopLevelAST> parseTopLevel(Lexer& lexer);
 
 std::unique_ptr<BlockAST> parseBlock(Lexer& lexer);
 
-std::unique_ptr<UnitAST> parseUnit(Lexer& lexer);
+std::unique_ptr<UnitAST> parseUnit(Lexer& lexer, const std::string& unit);

@@ -396,7 +396,7 @@ std::unique_ptr<ImportAST> parseImport(Lexer& lexer) {
         } else {
             alias = imported;
         }
-        aliases[alias] = imported;
+        aliases[imported] = alias;
     }
     if (aliases.size() == 0) {
         return logError("import statement with nothing imported found");
@@ -609,7 +609,7 @@ std::unique_ptr<BlockAST> parseBlock(Lexer& lexer) {
     return std::make_unique<BlockAST>(std::move(statements));
 }
 
-std::unique_ptr<UnitAST> parseUnit(Lexer& lexer) {
+std::unique_ptr<UnitAST> parseUnit(Lexer& lexer, const std::string& unit) {
     std::vector<std::unique_ptr<TopLevelAST> > statements;
 
     while (lexer.curToken.rawToken != std::string(1, EOF)) {
@@ -625,9 +625,9 @@ std::unique_ptr<UnitAST> parseUnit(Lexer& lexer) {
         }
     }
 
-    auto unit = std::make_unique<UnitAST>(std::move(statements));
+    auto unitAst = std::make_unique<UnitAST>(unit, std::move(statements));
     if constexpr (DEBUG_AST_PRINT_UNIT) {
-        std::cout << unit->toString() << std::endl;
+        std::cout << unitAst->toString() << std::endl;
     }
-    return unit;
+    return unitAst;
 }

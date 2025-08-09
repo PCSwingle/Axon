@@ -38,6 +38,8 @@ private:
     explicit GeneratedType(std::string type): type(std::move(type)) {
     }
 
+    std::string fullyQualified(ModuleState& state);
+
 public:
     static GeneratedType* get(const std::string& type);
 
@@ -53,6 +55,9 @@ public:
 
     bool isFloating();
 
+    bool isEqual(ModuleState& state, GeneratedType* other);
+
+    // Will automatically resolve any type aliases. It sucks that this is variable on state but whatever :)
     GeneratedStruct* getGenStruct(ModuleState& state);
 
     Type* getLLVMType(ModuleState& state);

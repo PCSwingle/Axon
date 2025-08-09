@@ -136,7 +136,7 @@ std::unique_ptr<GeneratedValue> BinaryOpExprAST::codegenValue(ModuleState& state
         return nullptr;
     }
 
-    if (L->type != R->type) {
+    if (!L->type->isEqual(state, R->type)) {
         return logError(
             "binary expression between two values not the same type; got " + L->type->toString() + " and " + R->type->
             toString());
@@ -247,8 +247,10 @@ std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& st
         if (!fieldPointer) {
             return nullptr;
         }
-        if (fieldPointer->type != fieldValue->type) {
-            return logError("invalid type for field " + fieldName);
+        if (!fieldPointer->type->isEqual(state, fieldValue->type)) {
+            return logError(
+                "invalid type for field " + fieldName + "; expected " + fieldPointer->type->toString() + ", got " +
+                fieldValue->type->toString());
         }
         state.builder->CreateStore(fieldValue->value, fieldPointer->value);
     }
@@ -274,7 +276,7 @@ bool StructAST::codegen(ModuleState& state) {
 bool FuncAST::codegen(ModuleState& state) {
     auto* genFunction = state.getFunction(funcName);
     if (!genFunction) {
-        logError("inner functions not implemented yet");
+        logError("function " + funcName + " not registered (somehow)");
         return false;
     }
 
@@ -325,7 +327,6 @@ bool VarAST::codegen(ModuleState& state) {
 
     GeneratedType* varType = type.value_or(val->type);
     if (definition && !state.registerVar(identifier, varType)) {
-        logError("duplicate identifier definition " + identifier);
         return false;
     }
 
@@ -345,7 +346,7 @@ bool VarAST::codegen(ModuleState& state) {
         }
     }
 
-    if (varPointer->type != val->type) {
+    if (!varPointer->type->isEqual(state, val->type)) {
         logError(
             "wrong type assigned to variable: expected " + varPointer->type->toString() + ", got " +
             val->type->toString());
@@ -437,7 +438,7 @@ bool ReturnAST::codegen(ModuleState& state) {
         if (!returnValue) {
             return false;
         }
-        if (returnValue->type != returnType) {
+        if (!returnValue->type->isEqual(state, returnType)) {
             logError("expected return type of " + returnType->toString() + ", got " + returnValue->type->toString());
             return false;
         }
@@ -465,10 +466,18 @@ bool BlockAST::codegen(ModuleState& state) {
 }
 
 bool UnitAST::codegen(ModuleState& state) {
+    state.enterScope();
+    for (const auto& statement: statements) {
+        if (!statement->postregister(state, unit)) {
+            return false;
+        }
+    }
+
     for (const auto& statement: statements) {
         if (!statement->codegen(state)) {
             return false;
         }
     }
+    state.exitScope();
     return true;
 }

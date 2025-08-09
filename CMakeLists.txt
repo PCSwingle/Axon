@@ -31,7 +31,7 @@ add_executable(Axon
         src/ast/ast_parsing.cpp
         src/ast/ast_utils.cpp
         src/ast/ast_codegen.cpp
-        src/ast/ast_preregister.cpp
+        src/ast/ast_register.cpp
         src/ast/module_state.cpp
         src/ast/llvm_utils.cpp
 

@@ -42,17 +42,25 @@ public:
         scopeStack.push_back(std::vector<std::string>());
     }
 
-    // main compilation
 private:
+    // main compilation
     std::filesystem::path unitToPath(const std::string& unit);
 
     std::unordered_map<std::string, std::unique_ptr<UnitAST> > units;
     std::vector<std::string> unitStack;
 
-    static std::unique_ptr<UnitAST> parseFile(const std::filesystem::path& filepath);
+    std::unordered_map<std::string, std::unique_ptr<Identifier> > globalIdentifiers;
+
+    static std::string mergeGlobalIdentifier(const std::string& unit, const std::string& identifier);
 
 public:
     void registerUnit(const std::string& unit);
+
+    bool registerGlobalIdentifier(const std::string& unit,
+                                  const std::string& identifier,
+                                  std::unique_ptr<Identifier> val);
+
+    bool useGlobalIdentifier(const std::string& unit, const std::string& identifier, const std::string& alias);
 
     bool compileModule();
 
@@ -75,19 +83,25 @@ public:
 
     bool registerIdentifier(const std::string& identifier, std::unique_ptr<Identifier> val);
 
+private:
+    Identifier* getIdentifier(const std::string& identifier);
+
+public:
     bool registerVar(const std::string& identifier, GeneratedType* type);
 
     GeneratedVariable* getVar(const std::string& identifier);
 
-    bool registerFunction(const std::string& identifier,
-                          const std::vector<SigArg>& signature,
-                          GeneratedType* returnType,
-                          FunctionType* type);
+    bool registerGlobalFunction(const std::string& unit,
+                                const std::string& identifier,
+                                const std::vector<SigArg>& signature,
+                                GeneratedType* returnType,
+                                FunctionType* type);
 
     GeneratedFunction* getFunction(const std::string& identifier);
 
-    bool registerStruct(const std::string& identifier,
-                        std::vector<std::tuple<std::string, GeneratedType*> >& fields);
+    bool registerGlobalStruct(const std::string& unit,
+                              const std::string& identifier,
+                              std::vector<std::tuple<std::string, GeneratedType*> >& fields);
 
     GeneratedStruct* getStruct(const std::string& identifier);
 };

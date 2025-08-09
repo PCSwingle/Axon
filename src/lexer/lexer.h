@@ -102,7 +102,7 @@ inline const std::vector<std::string> ALLOPS = []() {
 #define X_TYPE \
     TYPE(INT, "int") \
     TYPE(LONG, "long") \
-    TYPE(FLOAT, "flaot") \
+    TYPE(FLOAT, "float") \
     TYPE(DOUBLE, "double") \
     TYPE(BOOL, "bool") \
     TYPE(VOID, "void")

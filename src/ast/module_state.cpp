@@ -27,15 +27,10 @@ std::filesystem::path ModuleState::unitToPath(const std::string& unit) {
     return path;
 }
 
-std::unique_ptr<UnitAST> ModuleState::parseFile(const std::filesystem::path& filepath) {
-    if (!is_regular_file(filepath)) {
-        return logError("file " + filepath.string() + " does not exist");
-    }
-
-    std::string text = readFile(filepath);
-    Lexer lexer(text);
-    return parseUnit(lexer);
+std::string ModuleState::mergeGlobalIdentifier(const std::string& unit, const std::string& identifier) {
+    return unit + "." + identifier;
 }
+
 
 void ModuleState::registerUnit(const std::string& unit) {
     if (!units.contains(unit)) {
@@ -43,6 +38,30 @@ void ModuleState::registerUnit(const std::string& unit) {
         unitStack.push_back(unit);
     }
 }
+
+bool ModuleState::registerGlobalIdentifier(const std::string& unit,
+                                           const std::string& identifier,
+                                           std::unique_ptr<Identifier> val) {
+    auto globalIdentifier = mergeGlobalIdentifier(unit, identifier);
+    if (globalIdentifiers.contains(globalIdentifier)) {
+        logError("duplicate global identifier definition " + globalIdentifier);
+        return false;
+    }
+    globalIdentifiers.insert_or_assign(globalIdentifier, std::move(val));
+    return true;
+}
+
+bool ModuleState::useGlobalIdentifier(const std::string& unit,
+                                      const std::string& identifier,
+                                      const std::string& alias) {
+    auto globalIdentifier = mergeGlobalIdentifier(unit, identifier);
+    if (!globalIdentifiers.contains(globalIdentifier)) {
+        logError("unknown global identifier " + globalIdentifier);
+        return false;
+    }
+    return registerIdentifier(alias, std::make_unique<Identifier>(*globalIdentifiers.at(globalIdentifier)));
+}
+
 
 bool ModuleState::compileModule() {
     registerUnit(config.main);
@@ -52,11 +71,18 @@ bool ModuleState::compileModule() {
         assert(units.contains(curUnit) && units[curUnit] == nullptr && "tried to process unit twice");
 
         auto curFile = unitToPath(curUnit);
-        auto unitAst = parseFile(curFile);
+        if (!is_regular_file(curFile)) {
+            logError("file " + curFile.string() + " does not exist");
+            return false;
+        }
+
+        std::string text = readFile(curFile);
+        Lexer lexer(text);
+        auto unitAst = parseUnit(lexer, curUnit);
         if (!unitAst) {
             return false;
         }
-        unitAst->registerUnit(*this);
+        unitAst->preregisterUnit(*this);
         units[curUnit] = std::move(unitAst);
     }
     for (const auto& unitAst: units | std::views::values) {
@@ -102,7 +128,6 @@ bool ModuleState::enterFunc(const GeneratedFunction* function) {
     for (int i = 0; i < function->signature.size(); i++) {
         auto [type, identifier] = function->signature[i];
         if (!registerVar(identifier, type)) {
-            logError("duplicate identifier definition " + identifier);
             return false;
         }
     }
@@ -134,6 +159,7 @@ void ModuleState::exitScope() {
 
 bool ModuleState::registerIdentifier(const std::string& identifier, std::unique_ptr<Identifier> val) {
     if (identifiers.contains(identifier)) {
+        logError("duplicate identifier definition " + identifier);
         return false;
     }
     identifiers.insert_or_assign(identifier, std::move(val));
@@ -146,59 +172,78 @@ bool ModuleState::registerVar(const std::string& identifier, GeneratedType* type
     return registerIdentifier(identifier, std::make_unique<Identifier>(GeneratedVariable(type, varAlloca)));
 }
 
-GeneratedVariable* ModuleState::getVar(const std::string& identifier) {
-    if (!identifiers.contains(identifier)) {
+Identifier* ModuleState::getIdentifier(const std::string& identifier) {
+    if (identifiers.contains(identifier)) {
+        return identifiers.at(identifier).get();
+    } else if (globalIdentifiers.contains(identifier)) {
+        return globalIdentifiers.at(identifier).get();
+    } else {
         return nullptr;
     }
-    auto& val = identifiers.at(identifier);
-    auto* varAlloca = std::get_if<GeneratedVariable>(val.get());
+}
+
+
+GeneratedVariable* ModuleState::getVar(const std::string& identifier) {
+    auto val = getIdentifier(identifier);
+    if (!val) {
+        return nullptr;
+    }
+    auto* varAlloca = std::get_if<GeneratedVariable>(val);
     if (!varAlloca) {
         return nullptr;
     }
     return varAlloca;
 }
 
-bool ModuleState::registerFunction(const std::string& identifier,
-                                   const std::vector<SigArg>& signature,
-                                   GeneratedType* returnType,
-                                   FunctionType* type) {
-    auto* function = Function::Create(type, Function::ExternalLinkage, identifier, module.get());
-    return registerIdentifier(identifier,
-                              std::make_unique<Identifier>(GeneratedFunction(signature, returnType, function)));
+bool ModuleState::registerGlobalFunction(const std::string& unit,
+                                         const std::string& identifier,
+                                         const std::vector<SigArg>& signature,
+                                         GeneratedType* returnType,
+                                         FunctionType* type) {
+    auto* function = Function::Create(type,
+                                      Function::ExternalLinkage,
+                                      mergeGlobalIdentifier(unit, identifier),
+                                      module.get());
+    return registerGlobalIdentifier(unit,
+                                    identifier,
+                                    std::make_unique<Identifier>(GeneratedFunction(signature, returnType, function)));
 }
 
 GeneratedFunction* ModuleState::getFunction(const std::string& identifier) {
-    if (!identifiers.contains(identifier)) {
+    auto val = getIdentifier(identifier);
+    if (!val) {
         return nullptr;
     }
-    auto& val = identifiers.at(identifier);
-    auto* function = std::get_if<GeneratedFunction>(val.get());
+    auto* function = std::get_if<GeneratedFunction>(val);
     if (!function) {
         return nullptr;
     }
     return function;
 }
 
-bool ModuleState::registerStruct(const std::string& identifier,
-                                 std::vector<std::tuple<std::string, GeneratedType*> >& fields) {
+bool ModuleState::registerGlobalStruct(const std::string& unit,
+                                       const std::string& identifier,
+                                       std::vector<std::tuple<std::string, GeneratedType*> >& fields) {
     auto elements = std::vector<Type*>();
     for (auto& [fieldName, fieldType]: fields) {
         elements.push_back(fieldType->getLLVMType(*this));
     }
     auto* structType = StructType::get(*ctx, elements);
-    return registerIdentifier(identifier,
-                              std::make_unique<Identifier>(
-                                  GeneratedStruct(GeneratedType::get(identifier),
-                                                  fields,
-                                                  structType)));
+    return registerGlobalIdentifier(unit,
+                                    identifier,
+                                    std::make_unique<Identifier>(
+                                        GeneratedStruct(
+                                            GeneratedType::get(mergeGlobalIdentifier(unit, identifier)),
+                                            fields,
+                                            structType)));
 }
 
 GeneratedStruct* ModuleState::getStruct(const std::string& identifier) {
-    if (!identifiers.contains(identifier)) {
+    auto val = getIdentifier(identifier);
+    if (!val) {
         return nullptr;
     }
-    auto& val = identifiers.at(identifier);
-    auto* structIdentifier = std::get_if<GeneratedStruct>(val.get());
+    auto* structIdentifier = std::get_if<GeneratedStruct>(val);
     if (!structIdentifier) {
         return nullptr;
     }

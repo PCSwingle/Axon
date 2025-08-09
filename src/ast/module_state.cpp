@@ -199,10 +199,11 @@ bool ModuleState::registerGlobalFunction(const std::string& unit,
                                          const std::string& identifier,
                                          const std::vector<SigArg>& signature,
                                          GeneratedType* returnType,
-                                         FunctionType* type) {
+                                         FunctionType* type,
+                                         const std::optional<std::string>& customTwine) {
     auto* function = Function::Create(type,
                                       Function::ExternalLinkage,
-                                      mergeGlobalIdentifier(unit, identifier),
+                                      customTwine.value_or(mergeGlobalIdentifier(unit, identifier)),
                                       module.get());
     return registerGlobalIdentifier(unit,
                                     identifier,

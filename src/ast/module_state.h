@@ -95,7 +95,8 @@ public:
                                 const std::string& identifier,
                                 const std::vector<SigArg>& signature,
                                 GeneratedType* returnType,
-                                FunctionType* type);
+                                FunctionType* type,
+                                const std::optional<std::string>& customTwine = std::optional<std::string>());
 
     GeneratedFunction* getFunction(const std::string& identifier);
 

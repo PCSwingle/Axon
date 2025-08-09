@@ -27,7 +27,13 @@ bool FuncAST::preregister(ModuleState& state, const std::string& unit) {
         argTypes.push_back(type->getLLVMType(state));
     }
     FunctionType* type = FunctionType::get(returnType->getLLVMType(state), argTypes, false);
-    if (!state.registerGlobalFunction(unit, funcName, signature, returnType, type)) {
+
+    std::optional<std::string> customTwine{};
+    if (native || (funcName == "main" && unit == state.config.main)) {
+        customTwine = funcName;
+    }
+
+    if (!state.registerGlobalFunction(unit, funcName, signature, returnType, type, customTwine)) {
         return false;
     }
     return true;

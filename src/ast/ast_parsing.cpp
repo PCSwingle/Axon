@@ -402,6 +402,7 @@ std::unique_ptr<ImportAST> parseImport(Lexer& lexer) {
                 return logError("expected import alias, got " + lexer.curToken.rawToken);
             }
             alias = lexer.curToken.rawToken;
+            lexer.consume();
         } else {
             alias = imported;
         }

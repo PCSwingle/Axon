@@ -30,8 +30,8 @@ To export a function or struct from a file, simply make it `public`. Exported ob
     └── test.ax
 
 ### axon.toml ###
-name = "my_module"
-main = "my_module.main"
+name = "myModule"
+main = "myModule.main"
 
 ### dir/test.ax ###
 public func add(a: int, b: int): int {
@@ -40,10 +40,10 @@ public func add(a: int, b: int): int {
 
 ### main.ax ###
 # We can import the function normally...
-from my_module.dir.test import add
+from myModule.dir.test import add
 
 # ...or use an alias:
-from my_module.dir.test import add as add_func
+from myModule.dir.test import add as add_func
 
 func main() {
     add(2, 2)

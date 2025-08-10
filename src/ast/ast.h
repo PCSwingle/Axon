@@ -330,6 +330,8 @@ public:
 // parsing funcs
 class Lexer;
 
+GeneratedType* parseType(Lexer& lexer);
+
 std::unique_ptr<ExprAST> parseExpr(Lexer& lexer);
 
 std::unique_ptr<IfAST> parseIf(Lexer& lexer, bool onIf = true);

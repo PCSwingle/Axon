@@ -8,6 +8,15 @@
 #include "ast.h"
 #include "module/generated.h"
 
+GeneratedType* parseType(Lexer& lexer) {
+    if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
+        return logError("Expected type, got " + lexer.curToken.rawToken);
+    }
+    auto type = GeneratedType::get(lexer.curToken.rawToken);
+    lexer.consume();
+    return type;
+}
+
 std::unique_ptr<ExprAST> _parseExprNoBinopNoAccessor(Lexer& lexer) {
     // doesn't check for binops; use parseExpr
 
@@ -241,11 +250,10 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
         if (!definition) {
             return logError("Cannot only set variable type on definition");
         }
-        if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
-            return logError("Expected type after : in variable definition");
+        type = parseType(lexer);
+        if (!type.value()) {
+            return nullptr;
         }
-        type = GeneratedType::get(lexer.curToken.rawToken);
-        lexer.consume();
     }
 
     if (lexer.curToken.type != TOK_VAROP) {
@@ -437,11 +445,10 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
             return logError("Expected : after variable name");
         }
         lexer.consume();
-        if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
-            return logError("Expected type");
+        auto type = parseType(lexer);
+        if (!type) {
+            return nullptr;
         }
-        auto type = GeneratedType::get(lexer.curToken.rawToken);
-        lexer.consume();
 
         signature.push_back({std::move(type), identifier});
         if (lexer.curToken.rawToken == ",") {
@@ -455,11 +462,10 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
     GeneratedType* returnType;
     if (lexer.curToken.rawToken == ":") {
         lexer.consume();
-        if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
-            return logError("Expected function return type");
+        returnType = parseType(lexer);
+        if (!returnType) {
+            return nullptr;
         }
-        returnType = GeneratedType::get(lexer.curToken.rawToken);
-        lexer.consume();
     } else {
         returnType = GeneratedType::get(KW_VOID);
     }
@@ -512,11 +518,10 @@ std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {
             return logError("Expected : after variable name");
         }
         lexer.consume();
-        if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
-            return logError("Expected type");
+        auto type = parseType(lexer);
+        if (!type) {
+            return nullptr;
         }
-        auto type = GeneratedType::get(lexer.curToken.rawToken);
-        lexer.consume();
 
         fields.push_back(std::make_tuple(identifier, type));
     }

@@ -5,6 +5,7 @@
 #include <llvm/IR/Verifier.h>
 
 #include "ast.h"
+#include "llvm_utils.h"
 #include "logging.h"
 #include "module/module_state.h"
 #include "module/generated.h"
@@ -220,21 +221,13 @@ std::unique_ptr<GeneratedValue> AccessorExprAST::codegenValue(ModuleState& state
     return std::make_unique<GeneratedValue>(fieldPointer->type, val);
 }
 
-
 std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& state) {
-    auto* genStruct = state.getStruct(structName);
+    auto* genStruct = type->getGenStruct(state);
     if (!genStruct) {
-        return logError("attempted to call constructor for undefined struct " + structName);
+        return logError("attempted to call constructor for undefined or non-struct type " + type->toString());
     }
 
-    // todo: free :)
-    auto* structPointer = state.builder->CreateMalloc(state.intPtrTy,
-                                                      genStruct->structType,
-                                                      ConstantExpr::getSizeOf(genStruct->structType),
-                                                      nullptr,
-                                                      nullptr,
-                                                      structName + "_malloc"
-    );
+    auto* structPointer = createMalloc(state, ConstantExpr::getSizeOf(genStruct->structType), type->toString());
     auto structVal = std::make_unique<GeneratedValue>(genStruct->type, structPointer);
 
     auto used = std::unordered_set<std::string>();
@@ -257,12 +250,43 @@ std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& st
     }
     for (const auto& [fieldName, _]: genStruct->fields) {
         if (!used.contains(fieldName)) {
-            return logError("Field " + fieldName + " required for " + structName + " constructor");
+            return logError("Field " + fieldName + " required for " + type->toString() + " constructor");
         }
     }
     return structVal;
 }
 
+std::unique_ptr<GeneratedValue> ArrayExprAST::codegenValue(ModuleState& state) {
+    if (values.size() == 0) {
+        // TODO: when I allow inferrable types allow empty arrays?
+        // There's not much point in them tbh...
+        return logError("empty arrays not implemented yet");
+    }
+
+    std::vector<std::unique_ptr<GeneratedValue> > genValues;
+    GeneratedType* baseType = nullptr;
+    for (const auto& expr: values) {
+        auto genValue = expr->codegenValue(state);
+        if (!genValue) {
+            return nullptr;
+        }
+        if (genValues.size() > 0 && genValue->type != genValues[0]->type) {
+            return logError(
+                "mismatched types in array: got both " + genValue->type->toString() + " and " + genValues[0]->type->
+                toString());
+        }
+        baseType = genValue->type;
+        genValues.push_back(std::move(genValue));
+    }
+    assert(baseType);
+
+    Constant* typeSize = ConstantExpr::getSizeOf(baseType->getLLVMType(state));
+    auto* allocSize = state.builder->CreateMul(ConstantInt::get(state.intPtrTy, genValues.size()), typeSize);
+    allocSize = state.builder->CreateAdd(allocSize, ConstantExpr::getSizeOf(state.sizeTy));
+    // Note: since length is stored before data, we always have to add sizeof(size_t) to the pointer
+    auto* arrayPointer = createMalloc(state, allocSize, "array");
+    return std::make_unique<GeneratedValue>(baseType->toArray(), arrayPointer);
+}
 
 // top level statements
 bool ImportAST::codegen(ModuleState& state) {

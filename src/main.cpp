@@ -19,7 +19,7 @@ int main(const int argc, char* argv[]) {
 
     ModuleState module(config);
     bool success = module.compileModule() && module.writeIR();
-    std::cout << (success ? "successfully compiled!" : "did not successfully compile :(") << std::endl;
+    std::cerr << (success ? "successfully compiled!" : "did not successfully compile :(") << std::endl;
     cleanup();
     return success ? 0 : 1;
 }

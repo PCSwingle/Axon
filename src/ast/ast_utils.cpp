@@ -41,14 +41,26 @@ std::string AccessorExprAST::toString() {
 
 std::string ConstructorExprAST::toString() {
     std::ostringstream result;
-    for (auto& [fieldName, fieldValue]: values) {
+    for (const auto& [fieldName, fieldValue]: values) {
         result << fieldName << ": " << fieldValue->toString() << ", ";
     }
     auto s = result.str();
     s.pop_back();
     s.pop_back();
-    return "~" + structName + " { " + s + "}";
+    return "~" + type->toString() + "{" + s + "}";
 }
+
+std::string ArrayExprAST::toString() {
+    std::ostringstream result;
+    for (const auto& value: values) {
+        result << value << ", ";
+    }
+    auto s = result.str();
+    s.pop_back();
+    s.pop_back();
+    return "~[" + s + "]";
+}
+
 
 std::string ImportAST::toString() {
     return "import " + unit;

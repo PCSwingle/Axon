@@ -12,14 +12,19 @@ GeneratedType* parseType(Lexer& lexer) {
     if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
         return logError("Expected type, got " + lexer.curToken.rawToken);
     }
-    auto type = GeneratedType::get(lexer.curToken.rawToken);
+    auto type = lexer.curToken.rawToken;
     lexer.consume();
-    return type;
+
+    while (lexer.curToken.rawToken == "[" && lexer.peek(1).rawToken == "]") {
+        type += "[]";
+        lexer.consume();
+        lexer.consume();
+    }
+
+    return GeneratedType::get(type);
 }
 
 std::unique_ptr<ExprAST> _parseExprNoBinopNoAccessor(Lexer& lexer) {
-    // doesn't check for binops; use parseExpr
-
     // values
     if (lexer.curToken.type == TOK_VALUE) {
         auto value = lexer.curToken.rawToken;
@@ -52,10 +57,14 @@ std::unique_ptr<ExprAST> _parseExprNoBinopNoAccessor(Lexer& lexer) {
         }
     }
 
-    // constructor
-    // TODO: this collides with unop. change it to something else
+    // constructor and arrays
+    // TODO: this collides with unop. figure it out
     if (lexer.curToken.rawToken == "~") {
-        return parseConstructor(lexer);
+        if (lexer.peek(1).rawToken == "[") {
+            return parseArray(lexer);
+        } else {
+            return parseConstructor(lexer);
+        }
     }
 
     // unary ops
@@ -91,8 +100,6 @@ std::unique_ptr<ExprAST> _parseExprNoBinop(Lexer& lexer) {
 }
 
 std::unique_ptr<ExprAST> parseExpr(Lexer& lexer) {
-    // Parses an expression _with_ binop checking
-
     auto firstExpr = _parseExprNoBinop(lexer);
     if (!firstExpr) {
         return nullptr;
@@ -313,11 +320,10 @@ std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer) {
     }
     lexer.consume();
 
-    if (lexer.curToken.type != TOK_IDENTIFIER) {
-        return logError("expected struct name for constructor, got " + lexer.curToken.rawToken);
+    auto type = parseType(lexer);
+    if (!type) {
+        return nullptr;
     }
-    auto structName = lexer.curToken.rawToken;
-    lexer.consume();
 
     if (lexer.curToken.rawToken != "{") {
         return logError("expected opening { for constructor, got " + lexer.curToken.rawToken);
@@ -359,7 +365,43 @@ std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer) {
     }
     lexer.consume();
 
-    return std::make_unique<ConstructorExprAST>(structName, std::move(values));
+    return std::make_unique<ConstructorExprAST>(type, std::move(values));
+}
+
+std::unique_ptr<ArrayExprAST> parseArray(Lexer& lexer) {
+    if (lexer.curToken.rawToken != "~") {
+        return logError("expected ~ for array, got " + lexer.curToken.rawToken);
+    }
+    lexer.consume();
+
+    if (lexer.curToken.rawToken != "[") {
+        return logError("expected opening [ for array, got " + lexer.curToken.rawToken);
+    }
+    lexer.consume();
+
+    auto values = std::vector<std::unique_ptr<ExprAST> >();
+    while (lexer.curToken.rawToken != "]") {
+        // TODO: don't allow bare semicolons?
+        if (lexer.curToken.type == TOK_DELIMITER) {
+            lexer.consume();
+            continue;
+        }
+
+        auto valueExpr = parseExpr(lexer);
+        if (!valueExpr) {
+            return nullptr;
+        }
+        values.push_back(std::move(valueExpr));
+
+        if (lexer.curToken.rawToken == ",") {
+            lexer.consume();
+        } else if (lexer.curToken.rawToken != "]") {
+            return logError("Expected closing ] for array, got " + lexer.curToken.rawToken);
+        }
+    }
+    lexer.consume();
+
+    return std::make_unique<ArrayExprAST>(std::move(values));
 }
 
 std::unique_ptr<ImportAST> parseImport(Lexer& lexer) {

@@ -8,7 +8,8 @@
 
 <Call> -> <Identifier>([<Expr>,]*)
 <Constructor> -> ~<Identifier> { [<Identifier>: <Expr>,]* }
-<Expr> -> <Identifier> | <Value> | <Call> | <Constructor> | <Expr> <BinaryOp> <Expr> | <UnaryOp> <Expr> | ( <Expr> )
+<Array> -> ~[[<Expr>,]*]
+<Expr> -> <Identifier> | <Value> | <Call> | <Constructor> | <Array> | <Expr> <BinaryOp> <Expr> | <UnaryOp> <Expr> | ( <Expr> )
 
 <If> -> if (<Expr>) <Block> [elif (<Expr>) <Block>]* [else <Block>]?
 <While> -> while (<Expr>) <Block>

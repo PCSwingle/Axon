@@ -99,7 +99,10 @@ inline const std::vector<std::string> ALLOPS = []() {
     return allOps;
 }();
 
-
+// TODO: decide if should change to 'i32, i64, etc.'
+// TODO: add unsigned types?
+// TODO: add pointer type?
+// TODO: add size type? (imo just pointer type would be better)
 // types
 #define X_TYPE \
     TYPE(INT, "int") \

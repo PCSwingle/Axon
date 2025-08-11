@@ -48,6 +48,12 @@ public:
 
     bool isFloating();
 
+    bool isArray();
+
+    GeneratedType* getBase();
+
+    GeneratedType* toArray();
+
     GeneratedStruct* getGenStruct(ModuleState& state);
 
     Type* getLLVMType(ModuleState& state);

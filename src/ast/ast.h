@@ -135,13 +135,25 @@ public:
 };
 
 class ConstructorExprAST : public ExprAST {
-    std::string structName;
+    GeneratedType* type;
     std::unordered_map<std::string, std::unique_ptr<ExprAST> > values;
 
 public:
-    explicit ConstructorExprAST(std::string structName,
+    explicit ConstructorExprAST(GeneratedType* type,
                                 std::unordered_map<std::string, std::unique_ptr<ExprAST> >
-                                values): structName(std::move(structName)), values(std::move(values)) {
+                                values): type(std::move(type)), values(std::move(values)) {
+    }
+
+    std::string toString() override;
+
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
+};
+
+class ArrayExprAST : public ExprAST {
+    std::vector<std::unique_ptr<ExprAST> > values;
+
+public:
+    explicit ArrayExprAST(std::vector<std::unique_ptr<ExprAST> > values): values(std::move(values)) {
     }
 
     std::string toString() override;
@@ -343,6 +355,8 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer);
 std::unique_ptr<CallExprAST> parseCall(Lexer& lexer);
 
 std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer);
+
+std::unique_ptr<ArrayExprAST> parseArray(Lexer& lexer);
 
 std::unique_ptr<ImportAST> parseImport(Lexer& lexer);
 

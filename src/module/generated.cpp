@@ -39,6 +39,18 @@ bool GeneratedType::isFloating() {
     return type == KW_FLOAT || type == KW_DOUBLE;
 }
 
+bool GeneratedType::isArray() {
+    return type.ends_with("[]");
+}
+
+GeneratedType* GeneratedType::getBase() {
+    return isArray() ? get(type.substr(0, type.length() - 2)) : nullptr;
+}
+
+GeneratedType* GeneratedType::toArray() {
+    return get(type + "[]");
+}
+
 GeneratedStruct* GeneratedType::getGenStruct(ModuleState& state) {
     return state.getStruct(type);
 }

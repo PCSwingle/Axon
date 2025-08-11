@@ -32,6 +32,8 @@ public:
     std::unique_ptr<Module> module;
     std::unique_ptr<DataLayout> dl;
     Type* intPtrTy;
+    // Note: for now this is the same as intPtrTy; is there any case where this wouldn't be wanted?
+    Type* sizeTy;
 
     const ModuleConfig& config;
 

@@ -43,7 +43,7 @@ bool GeneratedType::isArray() {
     return type.ends_with("[]");
 }
 
-GeneratedType* GeneratedType::getBase() {
+GeneratedType* GeneratedType::getArrayBase() {
     return isArray() ? get(type.substr(0, type.length() - 2)) : nullptr;
 }
 
@@ -55,7 +55,7 @@ GeneratedStruct* GeneratedType::getGenStruct(ModuleState& state) {
     return state.getStruct(type);
 }
 
-Type* GeneratedType::getLLVMType(ModuleState& state) {
+Type* GeneratedType::getLLVMType(const ModuleState& state) {
     if (type == KW_INT) {
         return Type::getInt32Ty(*state.ctx);
     } else if (type == KW_LONG) {
@@ -91,6 +91,7 @@ std::unique_ptr<GeneratedValue> GeneratedValue::getFieldPointer(ModuleState& sta
     }
     auto fieldType = std::get<1>(genStruct->fields[fieldIndex.value()]);
     auto fieldIndices = createFieldIndices(state, fieldIndex.value());
+    // TODO: make this CreateInBoundsGEP (or CreateStructGep?)
     auto fieldPointer = state.builder->CreateGEP(genStruct->structType,
                                                  value,
                                                  fieldIndices,
@@ -98,10 +99,27 @@ std::unique_ptr<GeneratedValue> GeneratedValue::getFieldPointer(ModuleState& sta
     return std::make_unique<GeneratedValue>(fieldType, fieldPointer);
 }
 
+std::unique_ptr<GeneratedValue> GeneratedValue::getArrayPointer(ModuleState& state,
+                                                                std::unique_ptr<GeneratedValue> index) {
+    auto baseType = type->getArrayBase();
+    if (!baseType) {
+        return logError("type " + type->toString() + " is not an array");
+    }
+
+    auto baseInt = state.builder->CreatePtrToInt(value, state.intPtrTy, "arr_base_int");
+    auto arrayInt = state.builder->CreateAdd(baseInt, ConstantExpr::getSizeOf(state.sizeTy), "arr_int");
+
+    auto indexOffset = state.builder->CreateMul(ConstantExpr::getSizeOf(baseType->getLLVMType(state)),
+                                                index->value,
+                                                "ix_offset");
+    auto indexInt = state.builder->CreateAdd(arrayInt, indexOffset, "ix_int");
+    auto indexPtr = state.builder->CreateIntToPtr(indexInt, PointerType::getUnqual(*state.ctx), "ix_ptr");
+    return std::make_unique<GeneratedValue>(baseType, indexPtr);
+}
+
 std::unique_ptr<GeneratedValue> GeneratedVariable::toValue() {
     return std::make_unique<GeneratedValue>(type, varAlloca);
 }
-
 
 std::optional<int> GeneratedStruct::getFieldIndex(const std::string& fieldName) {
     for (auto&& [i, field]: std::views::enumerate(fields)) {

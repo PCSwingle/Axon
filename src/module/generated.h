@@ -50,16 +50,17 @@ public:
 
     bool isArray();
 
-    GeneratedType* getBase();
+    GeneratedType* getArrayBase();
 
     GeneratedType* toArray();
 
     GeneratedStruct* getGenStruct(ModuleState& state);
 
-    Type* getLLVMType(ModuleState& state);
+    Type* getLLVMType(const ModuleState& state);
 };
 
 struct GeneratedValue {
+    // TODO: add name
     GeneratedType* type;
     Value* value;
 
@@ -69,6 +70,8 @@ struct GeneratedValue {
     }
 
     std::unique_ptr<GeneratedValue> getFieldPointer(ModuleState& state, const std::string& fieldName);
+
+    std::unique_ptr<GeneratedValue> getArrayPointer(ModuleState& state, std::unique_ptr<GeneratedValue> index);
 };
 
 struct GeneratedVariable {

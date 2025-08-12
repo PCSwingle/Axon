@@ -280,12 +280,25 @@ std::unique_ptr<GeneratedValue> ArrayExprAST::codegenValue(ModuleState& state) {
     }
     assert(baseType);
 
+    // TODO: should be typeof size_t
     Constant* typeSize = ConstantExpr::getSizeOf(baseType->getLLVMType(state));
-    auto* allocSize = state.builder->CreateMul(ConstantInt::get(state.intPtrTy, genValues.size()), typeSize);
+    auto* allocSize = state.builder->CreateMul(ConstantInt::get(state.sizeTy, genValues.size()), typeSize);
+    // TODO: rhs should be typeof size_t
     allocSize = state.builder->CreateAdd(allocSize, ConstantExpr::getSizeOf(state.sizeTy));
-    // Note: since length is stored before data, we always have to add sizeof(size_t) to the pointer
+
+    // TODO: alignment. Shouldn't be any problem right now on 64 bit platforms and with only pointer allocation allowed,
+    // but if sizeof(size_t) == 4 then longs will be misaligned, and once array can hold actual structs the struct
+    // size could be 16 or more, again misaligning the data.
     auto* arrayPointer = createMalloc(state, allocSize, "array");
-    return std::make_unique<GeneratedValue>(baseType->toArray(), arrayPointer);
+    auto arrayValue = std::make_unique<GeneratedValue>(baseType->toArray(), arrayPointer);
+    for (auto&& [i, genValue]: enumerate(genValues)) {
+        // TODO: this should be size_t
+        auto indexValue = std::make_unique<GeneratedValue>(GeneratedType::get("long"),
+                                                           ConstantInt::get(state.sizeTy, APInt(64, i)));
+        auto indexPointer = arrayValue->getArrayPointer(state, std::move(indexValue));
+        state.builder->CreateStore(genValue->value, indexPointer->value);
+    }
+    return arrayValue;
 }
 
 // top level statements

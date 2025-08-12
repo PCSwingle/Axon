@@ -5,11 +5,15 @@
 #include <llvm/IR/Type.h>
 
 #include "llvm_utils.h"
+
+#include "ast/ast.h"
+#include "module/generated.h"
 #include "module/module_state.h"
 
 using namespace llvm;
 
 std::vector<Value*> createFieldIndices(const ModuleState& state, const int index) {
+    // GEP just uses 32 bit indices
     return std::vector<Value*>{
         ConstantInt::get(*state.ctx, APInt(32, 0)),
         ConstantInt::get(*state.ctx, APInt(32, index))
@@ -23,7 +27,7 @@ std::string typeToString(const Type* type) {
     return OS.str();
 }
 
-// This was (mostly) copied from IRBuidler's CreateMallocCall function
+// This is (mostly) copied from IRBuidler's CreateMallocCall function
 CallInst* createMalloc(ModuleState& state, Value* allocSize, const std::string& name) {
     assert(allocSize->getType() == state.intPtrTy && "malloc size is wrong type");
 

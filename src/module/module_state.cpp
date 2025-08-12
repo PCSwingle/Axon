@@ -247,6 +247,7 @@ bool ModuleState::registerGlobalStruct(const std::string& unit,
     for (auto& [fieldName, fieldType]: fields) {
         elements.push_back(fieldType->getLLVMType(*this));
     }
+    // TODO: I don't think llvm does padding / alignment, so we have to do it ourselves
     auto* structType = StructType::create(*ctx, elements, mergeGlobalIdentifier(unit, identifier));
     return registerGlobalIdentifier(unit,
                                     identifier,

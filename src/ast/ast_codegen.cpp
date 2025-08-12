@@ -221,6 +221,10 @@ std::unique_ptr<GeneratedValue> MemberAccessExprAST::codegenValue(ModuleState& s
     return std::make_unique<GeneratedValue>(fieldPointer->type, val);
 }
 
+std::unique_ptr<GeneratedValue> SubscriptExprAST::codegenValue(ModuleState& state) {
+    return logError("subscript not implemented yet");
+}
+
 std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& state) {
     auto* genStruct = type->getGenStruct(state);
     if (!genStruct) {

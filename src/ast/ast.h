@@ -134,6 +134,21 @@ public:
     std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
 };
 
+class SubscriptExprAST : public ExprAST {
+    std::unique_ptr<ExprAST> structExpr;
+    std::unique_ptr<ExprAST> subscriptExpr;
+
+public:
+    explicit SubscriptExprAST(std::unique_ptr<ExprAST> structExpr,
+                              std::unique_ptr<ExprAST> subscriptExpr): structExpr(std::move(structExpr)),
+                                                                       subscriptExpr(std::move(subscriptExpr)) {
+    }
+
+    std::string toString() override;
+
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
+};
+
 class ConstructorExprAST : public ExprAST {
     GeneratedType* type;
     std::unordered_map<std::string, std::unique_ptr<ExprAST> > values;
@@ -355,6 +370,8 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer);
 std::unique_ptr<CallExprAST> parseCall(Lexer& lexer);
 
 std::unique_ptr<MemberAccessExprAST> parseMemberAccess(Lexer& lexer, std::unique_ptr<ExprAST> structExpr);
+
+std::unique_ptr<SubscriptExprAST> parseSubscript(Lexer& lexer, std::unique_ptr<ExprAST> structExpr);
 
 std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer);
 

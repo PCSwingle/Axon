@@ -308,6 +308,10 @@ std::unique_ptr<MemberAccessExprAST> parseMemberAccess(Lexer& lexer, std::unique
     return std::make_unique<MemberAccessExprAST>(std::move(structExpr), std::move(fieldName));
 }
 
+std::unique_ptr<SubscriptExprAST> parseSubscript(Lexer& lexer, std::unique_ptr<ExprAST> structExpr) {
+    return logError("subscript not implemented yet");
+}
+
 std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer) {
     if (lexer.curToken.rawToken != "~") {
         return logError("expected ~ for constructor, got " + lexer.curToken.rawToken);

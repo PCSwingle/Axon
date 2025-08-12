@@ -102,7 +102,10 @@ std::string StructAST::toString() {
 }
 
 std::string VarAST::toString() {
-    return identifier + (type.has_value() ? ": " + type.value()->toString() : "") + " = " + expr->toString();
+    return (definition ? "let " : "") +
+           variableExpr->toString() +
+           (type.has_value() ? ": " + type.value()->toString() : "") +
+           " = " + expr->toString();
 }
 
 std::string IfAST::toString() {

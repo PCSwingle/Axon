@@ -117,10 +117,6 @@ std::unique_ptr<GeneratedValue> GeneratedValue::getArrayPointer(ModuleState& sta
     return std::make_unique<GeneratedValue>(baseType, indexPtr);
 }
 
-std::unique_ptr<GeneratedValue> GeneratedVariable::toValue() {
-    return std::make_unique<GeneratedValue>(type, varAlloca);
-}
-
 std::optional<int> GeneratedStruct::getFieldIndex(const std::string& fieldName) {
     for (auto&& [i, field]: std::views::enumerate(fields)) {
         if (std::get<0>(field) == fieldName) {

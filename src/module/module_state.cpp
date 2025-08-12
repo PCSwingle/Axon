@@ -188,7 +188,7 @@ bool ModuleState::registerIdentifier(const std::string& identifier, std::unique_
 
 bool ModuleState::registerVar(const std::string& identifier, GeneratedType* type) {
     auto* varAlloca = createAlloca(type, identifier);
-    return registerIdentifier(identifier, std::make_unique<Identifier>(GeneratedVariable(type, varAlloca)));
+    return registerIdentifier(identifier, std::make_unique<Identifier>(GeneratedValue(type, varAlloca)));
 }
 
 Identifier* ModuleState::getIdentifier(const std::string& identifier) {
@@ -201,12 +201,12 @@ Identifier* ModuleState::getIdentifier(const std::string& identifier) {
     }
 }
 
-GeneratedVariable* ModuleState::getVar(const std::string& identifier) {
+GeneratedValue* ModuleState::getVar(const std::string& identifier) {
     auto val = getIdentifier(identifier);
     if (!val) {
         return nullptr;
     }
-    auto* varAlloca = std::get_if<GeneratedVariable>(val);
+    auto* varAlloca = std::get_if<GeneratedValue>(val);
     if (!varAlloca) {
         return nullptr;
     }

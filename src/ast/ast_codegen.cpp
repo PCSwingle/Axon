@@ -61,15 +61,14 @@ std::unique_ptr<GeneratedValue> ValueExprAST::codegenValue(ModuleState& state) {
 }
 
 std::unique_ptr<GeneratedValue> VariableExprAST::codegenValue(ModuleState& state) {
-    GeneratedVariable* genVar = state.getVar(varName);
-    if (!genVar) {
-        return logError("undefined variable " + varName);
+    auto pointer = codegenPointer(state);
+    if (!pointer) {
+        return nullptr;
     }
-    auto* varAlloca = genVar->varAlloca;
-    Value* val = state.builder->CreateLoad(varAlloca->getAllocatedType(),
-                                           varAlloca,
+    Value* val = state.builder->CreateLoad(pointer->type->getLLVMType(state),
+                                           pointer->value,
                                            varName);
-    return std::make_unique<GeneratedValue>(genVar->type, val);
+    return std::make_unique<GeneratedValue>(pointer->type, val);
 }
 
 
@@ -209,16 +208,12 @@ std::unique_ptr<GeneratedValue> CallExprAST::codegenValue(ModuleState& state) {
 }
 
 std::unique_ptr<GeneratedValue> MemberAccessExprAST::codegenValue(ModuleState& state) {
-    auto structVal = structExpr->codegenValue(state);
-    if (!structVal) {
+    auto pointer = codegenPointer(state);
+    if (!pointer) {
         return nullptr;
     }
-    auto fieldPointer = structVal->getFieldPointer(state, fieldName);
-    if (!fieldPointer) {
-        return nullptr;
-    }
-    auto val = state.builder->CreateLoad(fieldPointer->type->getLLVMType(state), fieldPointer->value);
-    return std::make_unique<GeneratedValue>(fieldPointer->type, val);
+    auto val = state.builder->CreateLoad(pointer->type->getLLVMType(state), pointer->value);
+    return std::make_unique<GeneratedValue>(pointer->type, val);
 }
 
 std::unique_ptr<GeneratedValue> SubscriptExprAST::codegenValue(ModuleState& state) {
@@ -343,7 +338,7 @@ bool FuncAST::codegen(ModuleState& state) {
     for (int i = 0; i < signature.size(); i++) {
         auto* genVar = state.getVar(signature[i].identifier);
         auto* arg = function->getArg(i);
-        state.builder->CreateStore(arg, genVar->varAlloca);
+        state.builder->CreateStore(arg, genVar->value);
     }
     if (!block->get()->codegen(state)) {
         return false;
@@ -361,39 +356,48 @@ bool FuncAST::codegen(ModuleState& state) {
 
 // statements
 bool VarAST::codegen(ModuleState& state) {
-    auto val = expr->codegenValue(state);
-    if (!val) {
-        return false;
-    }
+    std::unique_ptr<GeneratedValue> varPointer;
+    std::unique_ptr<GeneratedValue> value;
 
-    GeneratedType* varType = type.value_or(val->type);
-    if (definition && !state.registerVar(identifier, varType)) {
-        return false;
-    }
+    // fml ;)
+    assert(!(definition && varOp != "="));
+    if (definition) {
+        value = expr->codegenValue(state);
 
-    auto* genVar = state.getVar(identifier);
-    if (!genVar) {
-        logError("reference to undefined variable " + identifier);
-        return false;
-    }
-    auto varPointer = genVar->toValue();
-    for (const auto& fieldName: fieldNames) {
-        varPointer->value = state.builder->CreateLoad(PointerType::getUnqual(*state.ctx),
-                                                      varPointer->value,
-                                                      fieldName);
-        varPointer = varPointer->getFieldPointer(state, fieldName);
-        if (!varPointer) {
+        auto raw = dynamic_cast<VariableExprAST*>(variableExpr.get());
+        if (!raw) {
+            logError("can only define raw variables");
             return false;
         }
+        GeneratedType* varType = type.value_or(value->type);
+        if (!state.registerVar(raw->varName, varType)) {
+            return false;
+        }
+
+        varPointer = variableExpr->codegenPointer(state);
+    } else if (varOp != "=") {
+        varPointer = variableExpr->codegenPointer(state);
+
+        auto binOp = varOp.substr(0, varOp.size() - 1);
+        expr = std::make_unique<BinaryOpExprAST>(std::move(variableExpr), std::move(expr), binOp);
+
+        value = expr->codegenValue(state);
+    } else {
+        varPointer = variableExpr->codegenPointer(state);
+        value = expr->codegenValue(state);
     }
 
-    if (varPointer->type != val->type) {
-        logError(
-            "wrong type assigned to variable: expected " + varPointer->type->toString() + ", got " +
-            val->type->toString());
+    if (!varPointer || !value) {
         return false;
     }
-    state.builder->CreateStore(val->value, varPointer->value);
+
+    if (varPointer->type != value->type) {
+        logError(
+            "wrong type assigned to variable: expected " + varPointer->type->toString() + ", got " +
+            value->type->toString());
+        return false;
+    }
+    state.builder->CreateStore(value->value, varPointer->value);
     return true;
 }
 

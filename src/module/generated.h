@@ -74,17 +74,6 @@ struct GeneratedValue {
     std::unique_ptr<GeneratedValue> getArrayPointer(ModuleState& state, std::unique_ptr<GeneratedValue> index);
 };
 
-struct GeneratedVariable {
-    GeneratedType* type;
-    AllocaInst* varAlloca;
-
-    explicit GeneratedVariable(GeneratedType* type, AllocaInst* varAlloca): type(type), varAlloca(varAlloca) {
-    }
-
-    // TODO: should this whole class even exist?
-    std::unique_ptr<GeneratedValue> toValue();
-};
-
 struct GeneratedFunction {
     std::vector<SigArg> signature;
     GeneratedType* returnType;

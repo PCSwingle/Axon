@@ -49,6 +49,11 @@ public:
     virtual std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) = 0;
 };
 
+class AssignableAST : public ExprAST {
+public:
+    virtual std::unique_ptr<GeneratedValue> codegenPointer(ModuleState& state) = 0;
+};
+
 // expr
 class ValueExprAST : public ExprAST {
     std::string rawValue;
@@ -62,16 +67,18 @@ public:
     std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
 };
 
-class VariableExprAST : public ExprAST {
+class VariableExprAST : public AssignableAST {
+public:
     std::string varName;
 
-public:
     explicit VariableExprAST(std::string varName): varName(std::move(varName)) {
     }
 
     std::string toString() override;
 
     std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
+
+    std::unique_ptr<GeneratedValue> codegenPointer(ModuleState& state) override;
 };
 
 class BinaryOpExprAST : public ExprAST {
@@ -119,7 +126,7 @@ public:
     std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
 };
 
-class MemberAccessExprAST : public ExprAST {
+class MemberAccessExprAST : public AssignableAST {
     std::unique_ptr<ExprAST> structExpr;
     std::string fieldName;
 
@@ -132,9 +139,11 @@ public:
     std::string toString() override;
 
     std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
+
+    std::unique_ptr<GeneratedValue> codegenPointer(ModuleState& state) override;
 };
 
-class SubscriptExprAST : public ExprAST {
+class SubscriptExprAST : public AssignableAST {
     std::unique_ptr<ExprAST> structExpr;
     std::unique_ptr<ExprAST> subscriptExpr;
 
@@ -147,6 +156,8 @@ public:
     std::string toString() override;
 
     std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
+
+    std::unique_ptr<GeneratedValue> codegenPointer(ModuleState& state) override;
 };
 
 class ConstructorExprAST : public ExprAST {
@@ -258,20 +269,20 @@ public:
 // statements
 class VarAST : public StatementAST {
     bool definition;
-    std::string identifier;
-    std::vector<std::string> fieldNames;
+    std::unique_ptr<AssignableAST> variableExpr;
     std::optional<GeneratedType*> type;
+    std::string varOp;
     std::unique_ptr<ExprAST> expr;
 
 public:
     explicit VarAST(const bool definition,
-                    std::string identifier,
-                    std::vector<std::string> fieldNames,
+                    std::unique_ptr<AssignableAST> variableExpr,
                     std::optional<GeneratedType*> type,
+                    std::string varOp,
                     std::unique_ptr<ExprAST> expr): definition(definition),
-                                                    identifier(std::move(identifier)),
-                                                    fieldNames(std::move(fieldNames)),
+                                                    variableExpr(std::move(variableExpr)),
                                                     type(std::move(type)),
+                                                    varOp(std::move(varOp)),
                                                     expr(std::move(expr)) {
     }
 
@@ -369,9 +380,16 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer);
 
 std::unique_ptr<CallExprAST> parseCall(Lexer& lexer);
 
-std::unique_ptr<MemberAccessExprAST> parseMemberAccess(Lexer& lexer, std::unique_ptr<ExprAST> structExpr);
+template<std::derived_from<ExprAST> T>
+std::unique_ptr<T> parseAccessors(Lexer& lexer, std::unique_ptr<T> expr);
 
-std::unique_ptr<SubscriptExprAST> parseSubscript(Lexer& lexer, std::unique_ptr<ExprAST> structExpr);
+/*
+extern template std::unique_ptr<ExprAST> parseAccessors<ExprAST>(Lexer& lexer, std::unique_ptr<ExprAST> expr);
+
+extern template std::unique_ptr<AssignableAST> parseAccessors<AssignableAST>(
+    Lexer& lexer,
+    std::unique_ptr<AssignableAST> expr);
+*/
 
 std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer);
 

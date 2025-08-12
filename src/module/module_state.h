@@ -21,7 +21,7 @@ class UnitAST;
 struct GeneratedType;
 struct GeneratedStruct;
 struct GeneratedFunction;
-struct GeneratedVariable;
+struct GeneratedValue;
 
 class ModuleState {
     AllocaInst* createAlloca(GeneratedType* type, const std::string& name);
@@ -88,7 +88,7 @@ private:
 public:
     bool registerVar(const std::string& identifier, GeneratedType* type);
 
-    GeneratedVariable* getVar(const std::string& identifier);
+    GeneratedValue* getVar(const std::string& identifier);
 
     bool registerGlobalFunction(const std::string& unit,
                                 const std::string& identifier,

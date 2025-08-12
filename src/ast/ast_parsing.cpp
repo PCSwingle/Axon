@@ -71,11 +71,9 @@ std::unique_ptr<ExprAST> parseRHSExpr(Lexer& lexer) {
     }
 
     // Member access
-    while (lexer.curToken.rawToken == ".") {
-        expr = parseMemberAccess(lexer, std::move(expr));
-        if (!expr) {
-            return nullptr;
-        }
+    expr = parseAccessors(lexer, std::move(expr));
+    if (!expr) {
+        return nullptr;
     }
     return expr;
 }
@@ -217,26 +215,17 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
     }
 
     if (lexer.curToken.type != TOK_IDENTIFIER) {
-        return logError("Expected var assignment");
+        return logError("Expected variable to assign");
     }
-    auto identifier = lexer.curToken.rawToken;
+    std::unique_ptr<AssignableAST> variableExpr = std::make_unique<VariableExprAST>(lexer.curToken.rawToken);
     lexer.consume();
-
-    std::vector<std::string> fieldNames{};
-    while (lexer.curToken.rawToken == ".") {
-        lexer.consume();
-        if (lexer.curToken.type != TOK_IDENTIFIER) {
-            return logError("Expected field name after member access");
-        }
-        fieldNames.push_back(lexer.curToken.rawToken);
-        lexer.consume();
-    }
+    variableExpr = parseAccessors(lexer, std::move(variableExpr));
 
     std::optional<GeneratedType*> type;
     if (lexer.curToken.rawToken == ":") {
         lexer.consume();
         if (!definition) {
-            return logError("Cannot only set variable type on definition");
+            return logError("Can only set variable type on definition");
         }
         type = parseType(lexer);
         if (!type.value()) {
@@ -254,16 +243,10 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
     if (!expr) {
         return nullptr;
     }
-    if (varOp != "=") {
-        auto binOp = varOp.substr(0, varOp.size() - 1);
-        // TODO: clean up member access (somehow?) between it, here, and variablexprast
-        std::unique_ptr<ExprAST> varPointer = std::make_unique<VariableExprAST>(identifier);
-        for (const auto& fieldName: fieldNames) {
-            varPointer = std::make_unique<MemberAccessExprAST>(std::move(varPointer), fieldName);
-        }
-        expr = std::make_unique<BinaryOpExprAST>(std::move(varPointer), std::move(expr), binOp);
+    if (varOp != "=" && definition) {
+        return logError("cannot use binary varop on definition");
     }
-    return std::make_unique<VarAST>(definition, identifier, std::move(fieldNames), type, std::move(expr));
+    return std::make_unique<VarAST>(definition, std::move(variableExpr), type, varOp, std::move(expr));
 }
 
 std::unique_ptr<CallExprAST> parseCall(Lexer& lexer) {
@@ -295,17 +278,18 @@ std::unique_ptr<CallExprAST> parseCall(Lexer& lexer) {
     return std::make_unique<CallExprAST>(identifier, std::move(args));
 }
 
-std::unique_ptr<MemberAccessExprAST> parseMemberAccess(Lexer& lexer, std::unique_ptr<ExprAST> structExpr) {
-    if (lexer.curToken.rawToken != ".") {
-        return logError("expected . for member access, got " + lexer.curToken.rawToken);
+template<std::derived_from<ExprAST> T>
+std::unique_ptr<T> parseAccessors(Lexer& lexer, std::unique_ptr<T> expr) {
+    while (lexer.curToken.rawToken == ".") {
+        lexer.consume();
+        if (lexer.curToken.type != TOK_IDENTIFIER) {
+            return logError("expected field name for member access, got " + lexer.curToken.rawToken);
+        }
+        auto fieldName = lexer.curToken.rawToken;
+        lexer.consume();
+        expr = std::make_unique<MemberAccessExprAST>(std::move(expr), std::move(fieldName));
     }
-    lexer.consume();
-    if (lexer.curToken.type != TOK_IDENTIFIER) {
-        return logError("expected field name for member access, got " + lexer.curToken.rawToken);
-    }
-    auto fieldName = lexer.curToken.rawToken;
-    lexer.consume();
-    return std::make_unique<MemberAccessExprAST>(std::move(structExpr), std::move(fieldName));
+    return expr;
 }
 
 std::unique_ptr<SubscriptExprAST> parseSubscript(Lexer& lexer, std::unique_ptr<ExprAST> structExpr) {

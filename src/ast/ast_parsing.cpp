@@ -24,7 +24,7 @@ GeneratedType* parseType(Lexer& lexer) {
     return GeneratedType::get(type);
 }
 
-std::unique_ptr<ExprAST> _parseExprNoBinop(Lexer& lexer) {
+std::unique_ptr<ExprAST> parseRHSExpr(Lexer& lexer) {
     std::unique_ptr<ExprAST> expr;
 
     if (lexer.curToken.type == TOK_VALUE) {
@@ -62,7 +62,7 @@ std::unique_ptr<ExprAST> _parseExprNoBinop(Lexer& lexer) {
         // special case for - because it's a binop and a unop
         auto unOp = lexer.curToken.rawToken;
         lexer.consume();
-        expr = std::make_unique<UnaryOpExprAST>(_parseExprNoBinop(lexer), unOp);
+        expr = std::make_unique<UnaryOpExprAST>(parseRHSExpr(lexer), unOp);
     } else {
         return logError("Expected expression, got " + lexer.curToken.rawToken);
     }
@@ -81,7 +81,7 @@ std::unique_ptr<ExprAST> _parseExprNoBinop(Lexer& lexer) {
 }
 
 std::unique_ptr<ExprAST> parseExpr(Lexer& lexer) {
-    auto firstExpr = _parseExprNoBinop(lexer);
+    auto firstExpr = parseRHSExpr(lexer);
     if (!firstExpr) {
         return nullptr;
     }
@@ -93,7 +93,7 @@ std::unique_ptr<ExprAST> parseExpr(Lexer& lexer) {
         auto op = lexer.curToken.rawToken;
         lexer.consume();
 
-        auto expr = _parseExprNoBinop(lexer);
+        auto expr = parseRHSExpr(lexer);
         if (!expr) {
             return nullptr;
         }

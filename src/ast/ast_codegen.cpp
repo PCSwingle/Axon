@@ -208,7 +208,7 @@ std::unique_ptr<GeneratedValue> CallExprAST::codegenValue(ModuleState& state) {
     return std::make_unique<GeneratedValue>(genFunction->returnType, val);
 }
 
-std::unique_ptr<GeneratedValue> AccessorExprAST::codegenValue(ModuleState& state) {
+std::unique_ptr<GeneratedValue> MemberAccessExprAST::codegenValue(ModuleState& state) {
     auto structVal = structExpr->codegenValue(state);
     if (!structVal) {
         return nullptr;

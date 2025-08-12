@@ -24,79 +24,60 @@ GeneratedType* parseType(Lexer& lexer) {
     return GeneratedType::get(type);
 }
 
-std::unique_ptr<ExprAST> _parseExprNoBinopNoAccessor(Lexer& lexer) {
-    // values
+std::unique_ptr<ExprAST> _parseExprNoBinop(Lexer& lexer) {
+    std::unique_ptr<ExprAST> expr;
+
     if (lexer.curToken.type == TOK_VALUE) {
+        // values
         auto value = lexer.curToken.rawToken;
         lexer.consume();
-        return std::make_unique<ValueExprAST>(value);
-    }
-
-    // variables and calls
-    if (lexer.curToken.type == TOK_IDENTIFIER) {
+        expr = std::make_unique<ValueExprAST>(value);
+    } else if (lexer.curToken.type == TOK_IDENTIFIER) {
+        // variables and calls
         if (lexer.peek(1).rawToken == "(") {
-            return parseCall(lexer);
+            expr = parseCall(lexer);
         } else {
             auto identifier = lexer.curToken.rawToken;
             lexer.consume();
-            return std::make_unique<VariableExprAST>(std::move(identifier));
+            expr = std::make_unique<VariableExprAST>(std::move(identifier));
         }
-    }
-
-    // parentheses
-    if (lexer.curToken.rawToken == "(") {
+    } else if (lexer.curToken.rawToken == "(") {
+        // parentheses
         lexer.consume();
-        if (auto expr = parseExpr(lexer)) {
-            if (lexer.curToken.rawToken != ")") {
-                return logError("Expected closing ) for parenthetical expression");
-            }
-            lexer.consume();
-            return expr;
-        } else {
-            return nullptr;
+        expr = parseExpr(lexer);
+        if (expr && lexer.curToken.rawToken != ")") {
+            return logError("Expected closing ) for parenthetical expression");
         }
-    }
-
-    // constructor and arrays
-    // TODO: this collides with unop. figure it out
-    if (lexer.curToken.rawToken == "~") {
+        lexer.consume();
+    } else if (lexer.curToken.rawToken == "~") {
+        // constructor and arrays
+        // TODO: this collides with unop. figure it out
         if (lexer.peek(1).rawToken == "[") {
-            return parseArray(lexer);
+            expr = parseArray(lexer);
         } else {
-            return parseConstructor(lexer);
+            expr = parseConstructor(lexer);
         }
-    }
-
-    // unary ops
-    // special case for - because it's a binop and a unop
-    if (lexer.curToken.type == TOK_UNOP || lexer.curToken.rawToken == "-") {
+    } else if (lexer.curToken.type == TOK_UNOP || lexer.curToken.rawToken == "-") {
+        // unary ops
+        // special case for - because it's a binop and a unop
         auto unOp = lexer.curToken.rawToken;
         lexer.consume();
-        if (auto expr = _parseExprNoBinopNoAccessor(lexer)) {
-            return std::make_unique<UnaryOpExprAST>(std::move(expr), unOp);
-        } else {
+        expr = std::make_unique<UnaryOpExprAST>(_parseExprNoBinop(lexer), unOp);
+    } else {
+        return logError("Expected expression, got " + lexer.curToken.rawToken);
+    }
+    if (!expr) {
+        return nullptr;
+    }
+
+    // Member access
+    while (lexer.curToken.rawToken == ".") {
+        expr = parseMemberAccess(lexer, std::move(expr));
+        if (!expr) {
             return nullptr;
         }
     }
-
-    return logError("Expected expression, got " + lexer.curToken.rawToken);
-}
-
-std::unique_ptr<ExprAST> _parseExprNoBinop(Lexer& lexer) {
-    if (auto expr = _parseExprNoBinopNoAccessor(lexer)) {
-        while (lexer.curToken.rawToken == ".") {
-            lexer.consume();
-            if (lexer.curToken.type != TOK_IDENTIFIER) {
-                return logError("expected field name for accessor, got " + lexer.curToken.rawToken);
-            }
-            auto fieldName = lexer.curToken.rawToken;
-            lexer.consume();
-            expr = std::make_unique<AccessorExprAST>(std::move(expr), std::move(fieldName));
-        }
-        return expr;
-    } else {
-        return nullptr;
-    }
+    return expr;
 }
 
 std::unique_ptr<ExprAST> parseExpr(Lexer& lexer) {
@@ -245,7 +226,7 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
     while (lexer.curToken.rawToken == ".") {
         lexer.consume();
         if (lexer.curToken.type != TOK_IDENTIFIER) {
-            return logError("Expected field name after accessor");
+            return logError("Expected field name after member access");
         }
         fieldNames.push_back(lexer.curToken.rawToken);
         lexer.consume();
@@ -275,10 +256,10 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
     }
     if (varOp != "=") {
         auto binOp = varOp.substr(0, varOp.size() - 1);
-        // TODO: clean up accessor (somehow?) between it, here, and variablexprast
+        // TODO: clean up member access (somehow?) between it, here, and variablexprast
         std::unique_ptr<ExprAST> varPointer = std::make_unique<VariableExprAST>(identifier);
         for (const auto& fieldName: fieldNames) {
-            varPointer = std::make_unique<AccessorExprAST>(std::move(varPointer), fieldName);
+            varPointer = std::make_unique<MemberAccessExprAST>(std::move(varPointer), fieldName);
         }
         expr = std::make_unique<BinaryOpExprAST>(std::move(varPointer), std::move(expr), binOp);
     }
@@ -312,6 +293,19 @@ std::unique_ptr<CallExprAST> parseCall(Lexer& lexer) {
     }
     lexer.consume();
     return std::make_unique<CallExprAST>(identifier, std::move(args));
+}
+
+std::unique_ptr<MemberAccessExprAST> parseMemberAccess(Lexer& lexer, std::unique_ptr<ExprAST> structExpr) {
+    if (lexer.curToken.rawToken != ".") {
+        return logError("expected . for member access, got " + lexer.curToken.rawToken);
+    }
+    lexer.consume();
+    if (lexer.curToken.type != TOK_IDENTIFIER) {
+        return logError("expected field name for member access, got " + lexer.curToken.rawToken);
+    }
+    auto fieldName = lexer.curToken.rawToken;
+    lexer.consume();
+    return std::make_unique<MemberAccessExprAST>(std::move(structExpr), std::move(fieldName));
 }
 
 std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer) {

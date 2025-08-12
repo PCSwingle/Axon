@@ -35,7 +35,7 @@ std::string CallExprAST::toString() {
     return "Call(" + callName + "(" + result.str() + "))";
 }
 
-std::string AccessorExprAST::toString() {
+std::string MemberAccessExprAST::toString() {
     return "(" + structExpr->toString() + ")." + fieldName;
 }
 

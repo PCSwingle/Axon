@@ -119,14 +119,14 @@ public:
     std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
 };
 
-class AccessorExprAST : public ExprAST {
+class MemberAccessExprAST : public ExprAST {
     std::unique_ptr<ExprAST> structExpr;
     std::string fieldName;
 
 public:
-    explicit AccessorExprAST(std::unique_ptr<ExprAST> structExpr,
-                             std::string fieldName): structExpr(std::move(structExpr)),
-                                                     fieldName(std::move(fieldName)) {
+    explicit MemberAccessExprAST(std::unique_ptr<ExprAST> structExpr,
+                                 std::string fieldName): structExpr(std::move(structExpr)),
+                                                         fieldName(std::move(fieldName)) {
     }
 
     std::string toString() override;
@@ -353,6 +353,8 @@ std::unique_ptr<WhileAST> parseWhile(Lexer& lexer);
 std::unique_ptr<VarAST> parseVar(Lexer& lexer);
 
 std::unique_ptr<CallExprAST> parseCall(Lexer& lexer);
+
+std::unique_ptr<MemberAccessExprAST> parseMemberAccess(Lexer& lexer, std::unique_ptr<ExprAST> structExpr);
 
 std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer);
 

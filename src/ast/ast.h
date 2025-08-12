@@ -144,13 +144,13 @@ public:
 };
 
 class SubscriptExprAST : public AssignableAST {
-    std::unique_ptr<ExprAST> structExpr;
-    std::unique_ptr<ExprAST> subscriptExpr;
+    std::unique_ptr<ExprAST> arrayExpr;
+    std::unique_ptr<ExprAST> indexExpr;
 
 public:
-    explicit SubscriptExprAST(std::unique_ptr<ExprAST> structExpr,
-                              std::unique_ptr<ExprAST> subscriptExpr): structExpr(std::move(structExpr)),
-                                                                       subscriptExpr(std::move(subscriptExpr)) {
+    explicit SubscriptExprAST(std::unique_ptr<ExprAST> arrayExpr,
+                              std::unique_ptr<ExprAST> indexExpr): arrayExpr(std::move(arrayExpr)),
+                                                                   indexExpr(std::move(indexExpr)) {
     }
 
     std::string toString() override;
@@ -382,14 +382,6 @@ std::unique_ptr<CallExprAST> parseCall(Lexer& lexer);
 
 template<std::derived_from<ExprAST> T>
 std::unique_ptr<T> parseAccessors(Lexer& lexer, std::unique_ptr<T> expr);
-
-/*
-extern template std::unique_ptr<ExprAST> parseAccessors<ExprAST>(Lexer& lexer, std::unique_ptr<ExprAST> expr);
-
-extern template std::unique_ptr<AssignableAST> parseAccessors<AssignableAST>(
-    Lexer& lexer,
-    std::unique_ptr<AssignableAST> expr);
-*/
 
 std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer);
 

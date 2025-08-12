@@ -103,7 +103,7 @@ static std::optional<Instruction::BinaryOps> getBinop(const std::string& binop, 
 static std::unordered_map<std::string, CmpInst::Predicate> icmpMap{
     {"==", CmpInst::ICMP_EQ},
     {"!=", CmpInst::ICMP_NE},
-    {"<", CmpInst::ICMP_SLE},
+    {"<", CmpInst::ICMP_SLT},
     {">", CmpInst::ICMP_SGT},
     {"<=", CmpInst::ICMP_SLE},
     {">=", CmpInst::ICMP_SGE}
@@ -111,7 +111,7 @@ static std::unordered_map<std::string, CmpInst::Predicate> icmpMap{
 static std::unordered_map<std::string, CmpInst::Predicate> fcmpMap{
     {"==", CmpInst::FCMP_OEQ},
     {"!=", CmpInst::FCMP_ONE},
-    {"<", CmpInst::FCMP_OLE},
+    {"<", CmpInst::FCMP_OLT},
     {">", CmpInst::FCMP_OGT},
     {"<=", CmpInst::FCMP_OLE},
     {">=", CmpInst::FCMP_OGE}
@@ -212,12 +212,19 @@ std::unique_ptr<GeneratedValue> MemberAccessExprAST::codegenValue(ModuleState& s
     if (!pointer) {
         return nullptr;
     }
-    auto val = state.builder->CreateLoad(pointer->type->getLLVMType(state), pointer->value);
+    auto val = state.builder->CreateLoad(pointer->type->getLLVMType(state),
+                                         pointer->value,
+                                         "member_access_" + fieldName);
     return std::make_unique<GeneratedValue>(pointer->type, val);
 }
 
 std::unique_ptr<GeneratedValue> SubscriptExprAST::codegenValue(ModuleState& state) {
-    return logError("subscript not implemented yet");
+    auto pointer = codegenPointer(state);
+    if (!pointer) {
+        return nullptr;
+    }
+    auto val = state.builder->CreateLoad(pointer->type->getLLVMType(state), pointer->value, "array_access");
+    return std::make_unique<GeneratedValue>(pointer->type, val);
 }
 
 std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& state) {

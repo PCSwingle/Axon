@@ -24,5 +24,17 @@ std::unique_ptr<GeneratedValue> MemberAccessExprAST::codegenPointer(ModuleState&
 }
 
 std::unique_ptr<GeneratedValue> SubscriptExprAST::codegenPointer(ModuleState& state) {
-    return logError("subscript not yet implemented");
+    auto arrayVal = arrayExpr->codegenValue(state);
+    if (!arrayVal) {
+        return nullptr;
+    }
+    auto indexVal = indexExpr->codegenValue(state);
+    if (!indexVal) {
+        return nullptr;
+    }
+    auto indexPointer = arrayVal->getArrayPointer(state, std::move(indexVal));
+    if (!indexPointer) {
+        return nullptr;
+    }
+    return indexPointer;
 }

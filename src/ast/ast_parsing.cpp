@@ -280,20 +280,31 @@ std::unique_ptr<CallExprAST> parseCall(Lexer& lexer) {
 
 template<std::derived_from<ExprAST> T>
 std::unique_ptr<T> parseAccessors(Lexer& lexer, std::unique_ptr<T> expr) {
-    while (lexer.curToken.rawToken == ".") {
-        lexer.consume();
-        if (lexer.curToken.type != TOK_IDENTIFIER) {
-            return logError("expected field name for member access, got " + lexer.curToken.rawToken);
+    while (lexer.curToken.rawToken == "." || lexer.curToken.rawToken == "[") {
+        if (lexer.curToken.rawToken == ".") {
+            lexer.consume();
+            if (lexer.curToken.type != TOK_IDENTIFIER) {
+                return logError("expected field name for member access, got " + lexer.curToken.rawToken);
+            }
+            auto fieldName = lexer.curToken.rawToken;
+            lexer.consume();
+            expr = std::make_unique<MemberAccessExprAST>(std::move(expr), std::move(fieldName));
+        } else if (lexer.curToken.rawToken == "[") {
+            lexer.consume();
+            auto indexExpr = parseExpr(lexer);
+            if (!indexExpr) {
+                return nullptr;
+            }
+            if (lexer.curToken.rawToken != "]") {
+                return logError("expected closing ] for subscript, got " + lexer.curToken.rawToken);
+            }
+            lexer.consume();
+            expr = std::make_unique<SubscriptExprAST>(std::move(expr), std::move(indexExpr));
+        } else {
+            assert(false);
         }
-        auto fieldName = lexer.curToken.rawToken;
-        lexer.consume();
-        expr = std::make_unique<MemberAccessExprAST>(std::move(expr), std::move(fieldName));
     }
     return expr;
-}
-
-std::unique_ptr<SubscriptExprAST> parseSubscript(Lexer& lexer, std::unique_ptr<ExprAST> structExpr) {
-    return logError("subscript not implemented yet");
 }
 
 std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer) {
@@ -557,17 +568,17 @@ std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {
 
 // var assignments are indistinguishable from expressions until the : or varop.
 // this is downstream of not making var declarations expressions.
+// since subscripts have expressions in them, we just search for first varop or delimiter.
 bool isVarAssignment(Lexer& lexer) {
     int peeking = 0;
-    while (lexer.peek(peeking).type == TOK_IDENTIFIER) {
-        if (lexer.peek(peeking + 1).rawToken == ":" || lexer.peek(peeking + 1).type == TOK_VAROP) {
-            return true;
-        } else if (lexer.peek(peeking + 1).rawToken != ".") {
+    while (true) {
+        if (lexer.peek(peeking).type == TOK_EOF || lexer.peek(peeking).type == TOK_DELIMITER) {
             return false;
+        } else if (lexer.peek(peeking).type == TOK_VAROP) {
+            return true;
         }
-        peeking += 2;
+        peeking += 1;
     }
-    return false;
 }
 
 std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
@@ -590,7 +601,9 @@ std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
     if (!statement) {
         return nullptr;
     } else if (lexer.curToken.type != TOK_DELIMITER) {
-        return logError("Expected delimiter after statement, got " + lexer.curToken.rawToken);
+        return logError(
+            "Expected delimiter after statement `" + statement->toString() + "`, got " + lexer.curToken.rawToken
+        );
     }
 
     return statement;

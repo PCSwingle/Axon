@@ -40,7 +40,7 @@ std::string MemberAccessExprAST::toString() {
 }
 
 std::string SubscriptExprAST::toString() {
-    return structExpr->toString() + "[" + subscriptExpr->toString() + "]";
+    return arrayExpr->toString() + "[" + indexExpr->toString() + "]";
 }
 
 std::string ConstructorExprAST::toString() {

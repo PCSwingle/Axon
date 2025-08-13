@@ -89,10 +89,6 @@ Token Lexer::process() {
             rawToken += cur;
             next();
         }
-        if (cur == 'L' || cur == 'D') {
-            rawToken += cur;
-            next();
-        }
         return Token(rawToken, TOK_VALUE);
     }
 

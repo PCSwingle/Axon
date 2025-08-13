@@ -48,6 +48,10 @@ public:
 
     bool isFloating();
 
+    bool isSigned();
+
+    bool isNumber();
+
     bool isArray();
 
     bool isDefined(ModuleState& state);

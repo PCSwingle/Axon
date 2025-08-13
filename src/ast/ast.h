@@ -46,7 +46,9 @@ class ExprAST : public StatementAST {
 public:
     bool codegen(ModuleState& state) override;
 
-    virtual std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) = 0;
+    // impliedType is necessary for empty arrays and number values, but we don't do any checking on it
+    // (it is purely for implicit casts, which should also be relatively rare)
+    virtual std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state, GeneratedType* impliedType) = 0;
 };
 
 class AssignableAST : public ExprAST {
@@ -64,7 +66,7 @@ public:
 
     std::string toString() override;
 
-    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state, GeneratedType* impliedType) override;
 };
 
 class VariableExprAST : public AssignableAST {
@@ -76,7 +78,7 @@ public:
 
     std::string toString() override;
 
-    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state, GeneratedType* impliedType) override;
 
     std::unique_ptr<GeneratedValue> codegenPointer(ModuleState& state) override;
 };
@@ -94,7 +96,7 @@ public:
 
     std::string toString() override;
 
-    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state, GeneratedType* impliedType) override;
 };
 
 class UnaryOpExprAST : public ExprAST {
@@ -108,7 +110,7 @@ public:
 
     std::string toString() override;
 
-    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state, GeneratedType* impliedType) override;
 };
 
 class CallExprAST : public ExprAST {
@@ -123,7 +125,7 @@ public:
 
     std::string toString() override;
 
-    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state, GeneratedType* impliedType) override;
 };
 
 class MemberAccessExprAST : public AssignableAST {
@@ -138,7 +140,7 @@ public:
 
     std::string toString() override;
 
-    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state, GeneratedType* impliedType) override;
 
     std::unique_ptr<GeneratedValue> codegenPointer(ModuleState& state) override;
 };
@@ -155,7 +157,7 @@ public:
 
     std::string toString() override;
 
-    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state, GeneratedType* impliedType) override;
 
     std::unique_ptr<GeneratedValue> codegenPointer(ModuleState& state) override;
 };
@@ -172,7 +174,7 @@ public:
 
     std::string toString() override;
 
-    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state, GeneratedType* impliedType) override;
 };
 
 class ArrayExprAST : public ExprAST {
@@ -184,7 +186,7 @@ public:
 
     std::string toString() override;
 
-    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state) override;
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state, GeneratedType* impliedType) override;
 };
 
 // top level

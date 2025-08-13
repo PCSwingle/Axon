@@ -39,6 +39,15 @@ bool GeneratedType::isFloating() {
     return type == KW_F32 || type == KW_F64;
 }
 
+bool GeneratedType::isSigned() {
+    return type == KW_I64 || type == KW_I32 || type == KW_I8 || type == KW_ISIZE;
+}
+
+bool GeneratedType::isNumber() {
+    return type == KW_I64 || type == KW_U64 || type == KW_I32 || type == KW_U32 ||
+           type == KW_I8 || type == KW_U8 || type == KW_ISIZE || type == KW_USIZE;
+}
+
 bool GeneratedType::isArray() {
     return type.ends_with("[]");
 }

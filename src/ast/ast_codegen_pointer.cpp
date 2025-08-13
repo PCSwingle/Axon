@@ -13,7 +13,7 @@ std::unique_ptr<GeneratedValue> VariableExprAST::codegenPointer(ModuleState& sta
 }
 
 std::unique_ptr<GeneratedValue> MemberAccessExprAST::codegenPointer(ModuleState& state) {
-    auto structVal = structExpr->codegenValue(state);
+    auto structVal = structExpr->codegenValue(state, nullptr);
     if (!structVal) {
         return nullptr;
     }
@@ -25,11 +25,11 @@ std::unique_ptr<GeneratedValue> MemberAccessExprAST::codegenPointer(ModuleState&
 }
 
 std::unique_ptr<GeneratedValue> SubscriptExprAST::codegenPointer(ModuleState& state) {
-    auto arrayVal = arrayExpr->codegenValue(state);
+    auto arrayVal = arrayExpr->codegenValue(state, nullptr);
     if (!arrayVal) {
         return nullptr;
     }
-    auto indexVal = indexExpr->codegenValue(state);
+    auto indexVal = indexExpr->codegenValue(state, GeneratedType::get(KW_USIZE));
     if (!indexVal) {
         return nullptr;
     }

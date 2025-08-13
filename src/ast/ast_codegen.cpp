@@ -15,14 +15,14 @@ using namespace llvm;
 
 // expr
 bool ExprAST::codegen(ModuleState& state) {
-    if (!codegenValue(state)) {
+    if (!codegenValue(state, nullptr)) {
         return false;
     } else {
         return true;
     }
 }
 
-std::unique_ptr<GeneratedValue> ValueExprAST::codegenValue(ModuleState& state) {
+std::unique_ptr<GeneratedValue> ValueExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
     if (rawValue.front() == '\"' || rawValue.front() == '\'') {
         auto strVal = rawValue.substr(1, rawValue.length() - 2);
         return logError("string literals not implemented yet");
@@ -31,36 +31,39 @@ std::unique_ptr<GeneratedValue> ValueExprAST::codegenValue(ModuleState& state) {
     } else if (rawValue == KW_FALSE) {
         return std::make_unique<GeneratedValue>(GeneratedType::get(KW_BOOL), ConstantInt::getFalse(*state.ctx));
     } else if (rawValue.find('.') != std::string::npos) {
-        GeneratedType* type;
         APFloat apVal(APFloat::IEEEsingle());
-        if (rawValue.back() == 'L') {
-            return logError("cannot use L on a floating point value");
-        } else if (rawValue.back() == 'D') {
-            type = GeneratedType::get(KW_F64);
-            apVal = APFloat(APFloat::IEEEdouble(), rawValue.substr(0, rawValue.size() - 1));
-        } else {
-            type = GeneratedType::get(KW_F32);
+        if (impliedType == GeneratedType::get(KW_F64)) {
+            apVal = APFloat(APFloat::IEEEdouble(), rawValue);
+        } else if (impliedType == GeneratedType::get(KW_F32)) {
             apVal = APFloat(APFloat::IEEEsingle(), rawValue);
-        }
-        return std::make_unique<GeneratedValue>(type, ConstantFP::get(type->getLLVMType(state), apVal));
-    } else {
-        GeneratedType* type;
-        APInt apVal;
-        if (rawValue.back() == 'D') {
-            return logError("cannot use D on an integer value");
-        } else if (rawValue.back() == 'L') {
-            type = GeneratedType::get(KW_I64);
-            apVal = APInt(64, rawValue.substr(0, rawValue.size() - 1), 10);
         } else {
-            type = GeneratedType::get(KW_I32);
+            // Default floating type
+            impliedType = GeneratedType::get(KW_F64);
+            apVal = APFloat(APFloat::IEEEdouble(), rawValue);
+        }
+        return std::make_unique<GeneratedValue>(impliedType, ConstantFP::get(impliedType->getLLVMType(state), apVal));
+    } else {
+        APInt apVal;
+        if (impliedType == GeneratedType::get(KW_I64) || impliedType == GeneratedType::get(KW_U64)) {
+            apVal = APInt(64, rawValue, 10);
+        } else if (impliedType == GeneratedType::get(KW_I32) || impliedType == GeneratedType::get(KW_U32)) {
+            apVal = APInt(32, rawValue, 10);
+        } else if (impliedType == GeneratedType::get(KW_I8) || impliedType == GeneratedType::get(KW_U8)) {
+            apVal = APInt(8, rawValue, 10);
+        } else if (impliedType == GeneratedType::get(KW_ISIZE) || impliedType == GeneratedType::get(KW_USIZE)) {
+            apVal = APInt(state.sizeTy->getIntegerBitWidth(), rawValue, 10);
+        } else {
+            // Default int type
+            impliedType = GeneratedType::get(KW_I32);
             apVal = APInt(32, rawValue, 10);
         }
         // todo: if number overflows raise error
-        return std::make_unique<GeneratedValue>(type, ConstantInt::getIntegerValue(type->getLLVMType(state), apVal));
+        return std::make_unique<GeneratedValue>(impliedType,
+                                                ConstantInt::getIntegerValue(impliedType->getLLVMType(state), apVal));
     }
 }
 
-std::unique_ptr<GeneratedValue> VariableExprAST::codegenValue(ModuleState& state) {
+std::unique_ptr<GeneratedValue> VariableExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
     auto pointer = codegenPointer(state);
     if (!pointer) {
         return nullptr;
@@ -79,6 +82,13 @@ static std::unordered_map<std::string, Instruction::BinaryOps> ibinopMap{
     {"/", Instruction::SDiv},
     {"%", Instruction::SRem},
 };
+static std::unordered_map<std::string, Instruction::BinaryOps> ubinopMap{
+    {"+", Instruction::Add},
+    {"-", Instruction::Sub},
+    {"*", Instruction::Mul},
+    {"/", Instruction::UDiv},
+    {"%", Instruction::URem},
+};
 static std::unordered_map<std::string, Instruction::BinaryOps> fbinopMap{
     {"+", Instruction::FAdd},
     {"-", Instruction::FSub},
@@ -87,14 +97,20 @@ static std::unordered_map<std::string, Instruction::BinaryOps> fbinopMap{
     {"%", Instruction::FRem},
 };
 
-static std::optional<Instruction::BinaryOps> getBinop(const std::string& binop, bool floating) {
-    if (floating) {
+static std::optional<Instruction::BinaryOps> getBinop(const std::string& binop,
+                                                      const bool isSigned,
+                                                      const bool isFloating) {
+    if (isFloating) {
         if (fbinopMap.contains(binop)) {
             return fbinopMap[binop];
         }
-    } else {
+    } else if (isSigned) {
         if (ibinopMap.contains(binop)) {
             return ibinopMap[binop];
+        }
+    } else {
+        if (ubinopMap.contains(binop)) {
+            return ubinopMap[binop];
         }
     }
     return std::optional<Instruction::BinaryOps>();
@@ -108,6 +124,14 @@ static std::unordered_map<std::string, CmpInst::Predicate> icmpMap{
     {"<=", CmpInst::ICMP_SLE},
     {">=", CmpInst::ICMP_SGE}
 };
+static std::unordered_map<std::string, CmpInst::Predicate> ucmpMap{
+    {"==", CmpInst::ICMP_EQ},
+    {"!=", CmpInst::ICMP_NE},
+    {"<", CmpInst::ICMP_ULT},
+    {">", CmpInst::ICMP_UGT},
+    {"<=", CmpInst::ICMP_ULE},
+    {">=", CmpInst::ICMP_UGE}
+};
 static std::unordered_map<std::string, CmpInst::Predicate> fcmpMap{
     {"==", CmpInst::FCMP_OEQ},
     {"!=", CmpInst::FCMP_ONE},
@@ -117,22 +141,33 @@ static std::unordered_map<std::string, CmpInst::Predicate> fcmpMap{
     {">=", CmpInst::FCMP_OGE}
 };
 
-static std::optional<CmpInst::Predicate> getCmpop(const std::string& cmpop, bool floating) {
-    if (floating) {
+static std::optional<CmpInst::Predicate> getCmpop(const std::string& cmpop,
+                                                  const bool isSigned,
+                                                  const bool isFloating) {
+    if (isFloating) {
         if (fcmpMap.contains(cmpop)) {
             return fcmpMap[cmpop];
         }
-    } else {
+    } else if (isSigned) {
         if (icmpMap.contains(cmpop)) {
             return icmpMap[cmpop];
+        }
+    } else {
+        if (ucmpMap.contains(cmpop)) {
+            return ucmpMap[cmpop];
         }
     }
     return std::optional<CmpInst::Predicate>();
 }
 
-std::unique_ptr<GeneratedValue> BinaryOpExprAST::codegenValue(ModuleState& state) {
-    auto L = LHS->codegenValue(state);
-    auto R = RHS->codegenValue(state);
+std::unique_ptr<GeneratedValue> BinaryOpExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
+    // TODO: Missing out on an implicit cast here that would allow us to do `let x = 2 + <var_with_type>`.
+    // Once semantic analysis and codegen are split up this will be possible.
+    if (icmpMap.contains(binOp)) {
+        impliedType = nullptr;
+    }
+    auto L = LHS->codegenValue(state, impliedType);
+    auto R = RHS->codegenValue(state, impliedType);
     if (!L || !R) {
         return nullptr;
     }
@@ -142,10 +177,12 @@ std::unique_ptr<GeneratedValue> BinaryOpExprAST::codegenValue(ModuleState& state
             "binary expression between two values not the same type; got " + L->type->toString() + " and " + R->type->
             toString() + ". Expression: " + this->toString());
     }
-    bool floating = L->type->isFloating();
+    bool isSigned = L->type->isSigned();
+    bool isFloating = L->type->isFloating();
 
-    std::optional<Instruction::BinaryOps> op = getBinop(binOp, floating);
-    std::optional<CmpInst::Predicate> cmpOp = getCmpop(binOp, floating);
+    // TODO: clean all of this up (with cmpop check up there as well)
+    std::optional<Instruction::BinaryOps> op = getBinop(binOp, isSigned, isFloating);
+    std::optional<CmpInst::Predicate> cmpOp = getCmpop(binOp, isSigned, isFloating);
     GeneratedType* type;
     Value* val;
     if (op.has_value()) {
@@ -161,8 +198,8 @@ std::unique_ptr<GeneratedValue> BinaryOpExprAST::codegenValue(ModuleState& state
 }
 
 
-std::unique_ptr<GeneratedValue> UnaryOpExprAST::codegenValue(ModuleState& state) {
-    auto genVal = expr->codegenValue(state);
+std::unique_ptr<GeneratedValue> UnaryOpExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
+    auto genVal = expr->codegenValue(state, impliedType);
     if (!genVal) {
         return nullptr;
     }
@@ -177,7 +214,7 @@ std::unique_ptr<GeneratedValue> UnaryOpExprAST::codegenValue(ModuleState& state)
 }
 
 
-std::unique_ptr<GeneratedValue> CallExprAST::codegenValue(ModuleState& state) {
+std::unique_ptr<GeneratedValue> CallExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
     auto* genFunction = state.getFunction(callName);
     if (!genFunction) {
         return logError("function " + callName + " not defined");
@@ -191,7 +228,7 @@ std::unique_ptr<GeneratedValue> CallExprAST::codegenValue(ModuleState& state) {
 
     std::vector<Value*> argsV;
     for (int i = 0; i < args.size(); i++) {
-        auto arg = args[i]->codegenValue(state);
+        auto arg = args[i]->codegenValue(state, genFunction->signature[i].type);
         if (!arg) {
             return nullptr;
         }
@@ -210,7 +247,7 @@ std::unique_ptr<GeneratedValue> CallExprAST::codegenValue(ModuleState& state) {
     return std::make_unique<GeneratedValue>(genFunction->returnType, val);
 }
 
-std::unique_ptr<GeneratedValue> MemberAccessExprAST::codegenValue(ModuleState& state) {
+std::unique_ptr<GeneratedValue> MemberAccessExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
     auto pointer = codegenPointer(state);
     if (!pointer) {
         return nullptr;
@@ -221,7 +258,7 @@ std::unique_ptr<GeneratedValue> MemberAccessExprAST::codegenValue(ModuleState& s
     return std::make_unique<GeneratedValue>(pointer->type, val);
 }
 
-std::unique_ptr<GeneratedValue> SubscriptExprAST::codegenValue(ModuleState& state) {
+std::unique_ptr<GeneratedValue> SubscriptExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
     auto pointer = codegenPointer(state);
     if (!pointer) {
         return nullptr;
@@ -230,7 +267,7 @@ std::unique_ptr<GeneratedValue> SubscriptExprAST::codegenValue(ModuleState& stat
     return std::make_unique<GeneratedValue>(pointer->type, val);
 }
 
-std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& state) {
+std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
     auto* genStruct = type->getGenStruct(state);
     if (!genStruct) {
         return logError("attempted to call constructor for undefined or non-struct type " + type->toString());
@@ -245,7 +282,12 @@ std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& st
     auto used = std::unordered_set<std::string>();
     for (auto& [fieldName, fieldExpr]: values) {
         used.insert(fieldName);
-        auto fieldValue = fieldExpr->codegenValue(state);
+        auto fieldIndex = genStruct->getFieldIndex(fieldName);
+        if (!fieldIndex.has_value()) {
+            return logError("struct " + genStruct->type->toString() + " has no field " + fieldName);
+        }
+
+        auto fieldValue = fieldExpr->codegenValue(state, std::get<1>(genStruct->fields[fieldIndex.value()]));
         if (!fieldValue) {
             return nullptr;
         }
@@ -268,21 +310,15 @@ std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& st
     return structVal;
 }
 
-std::unique_ptr<GeneratedValue> ArrayExprAST::codegenValue(ModuleState& state) {
-    if (values.size() == 0) {
-        // TODO: when I allow inferrable types allow empty arrays?
-        // There's not much point in them tbh...
-        return logError("empty arrays not implemented yet");
-    }
-
+std::unique_ptr<GeneratedValue> ArrayExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
     std::vector<std::unique_ptr<GeneratedValue> > genValues;
-    GeneratedType* baseType = nullptr;
+    GeneratedType* baseType = impliedType ? impliedType->getArrayBase() : nullptr;
     for (const auto& expr: values) {
-        auto genValue = expr->codegenValue(state);
+        auto genValue = expr->codegenValue(state, baseType);
         if (!genValue) {
             return nullptr;
         }
-        if (genValues.size() > 0 && genValue->type != genValues[0]->type) {
+        if (baseType && genValue->type != baseType) {
             return logError(
                 "mismatched types in array: got both " + genValue->type->toString() + " and " + genValues[0]->type->
                 toString());
@@ -290,7 +326,9 @@ std::unique_ptr<GeneratedValue> ArrayExprAST::codegenValue(ModuleState& state) {
         baseType = genValue->type;
         genValues.push_back(std::move(genValue));
     }
-    assert(baseType);
+    if (!baseType) {
+        return logError("unable to infer type of array " + toString());
+    }
 
     auto* typeSize = state.builder->
             CreateTrunc(ConstantExpr::getSizeOf(baseType->getLLVMType(state)), state.sizeTy);
@@ -382,7 +420,7 @@ bool VarAST::codegen(ModuleState& state) {
     // fml ;)
     assert(!(definition && varOp != "="));
     if (definition) {
-        value = expr->codegenValue(state);
+        value = expr->codegenValue(state, type.value_or(nullptr));
 
         auto raw = dynamic_cast<VariableExprAST*>(variableExpr.get());
         if (!raw) {
@@ -400,16 +438,13 @@ bool VarAST::codegen(ModuleState& state) {
         }
 
         varPointer = variableExpr->codegenPointer(state);
-    } else if (varOp != "=") {
-        varPointer = variableExpr->codegenPointer(state);
-
-        auto binOp = varOp.substr(0, varOp.size() - 1);
-        expr = std::make_unique<BinaryOpExprAST>(std::move(variableExpr), std::move(expr), binOp);
-
-        value = expr->codegenValue(state);
     } else {
         varPointer = variableExpr->codegenPointer(state);
-        value = expr->codegenValue(state);
+        if (varOp != "=") {
+            auto binOp = varOp.substr(0, varOp.size() - 1);
+            expr = std::make_unique<BinaryOpExprAST>(std::move(variableExpr), std::move(expr), binOp);
+        }
+        value = expr->codegenValue(state, varPointer->type);
     }
 
     if (!varPointer || !value) {
@@ -427,7 +462,7 @@ bool VarAST::codegen(ModuleState& state) {
 }
 
 bool IfAST::codegen(ModuleState& state) {
-    auto val = expr->codegenValue(state);
+    auto val = expr->codegenValue(state, GeneratedType::get(KW_BOOL));
     if (!val) {
         return false;
     }
@@ -479,7 +514,7 @@ bool WhileAST::codegen(ModuleState& state) {
     state.builder->CreateBr(condBB);
     state.builder->SetInsertPoint(condBB);
 
-    auto val = expr->codegenValue(state);
+    auto val = expr->codegenValue(state, GeneratedType::get(KW_BOOL));
     if (!val) {
         return false;
     }
@@ -508,7 +543,7 @@ bool ReturnAST::codegen(ModuleState& state) {
             logError("cannot return a value from a void function");
         }
 
-        auto returnValue = returnExpr->get()->codegenValue(state);
+        auto returnValue = returnExpr->get()->codegenValue(state, returnType);
         if (!returnValue) {
             return false;
         }

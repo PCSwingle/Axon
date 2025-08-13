@@ -233,7 +233,10 @@ std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& st
         return logError("attempted to call constructor for undefined or non-struct type " + type->toString());
     }
 
-    auto* structPointer = createMalloc(state, ConstantExpr::getSizeOf(genStruct->structType), type->toString());
+    auto* structPointer = createMalloc(state,
+                                       state.builder->CreateTrunc(ConstantExpr::getSizeOf(genStruct->structType),
+                                                                  state.sizeTy),
+                                       type->toString());
     auto structVal = std::make_unique<GeneratedValue>(genStruct->type, structPointer);
 
     auto used = std::unordered_set<std::string>();
@@ -286,21 +289,25 @@ std::unique_ptr<GeneratedValue> ArrayExprAST::codegenValue(ModuleState& state) {
     }
     assert(baseType);
 
-    // TODO: should be typeof size_t
-    Constant* typeSize = ConstantExpr::getSizeOf(baseType->getLLVMType(state));
+    auto* typeSize = state.builder->
+            CreateTrunc(ConstantExpr::getSizeOf(baseType->getLLVMType(state)), state.sizeTy);
     auto* allocSize = state.builder->CreateMul(ConstantInt::get(state.sizeTy, genValues.size()), typeSize);
-    // TODO: rhs should be typeof size_t
-    allocSize = state.builder->CreateAdd(allocSize, ConstantExpr::getSizeOf(state.sizeTy));
+    allocSize = state.builder->CreateAdd(allocSize,
+                                         state.builder->
+                                         CreateTrunc(ConstantExpr::getSizeOf(baseType->getLLVMType(state)),
+                                                     state.sizeTy));
 
-    // TODO: alignment. Shouldn't be any problem right now on 64 bit platforms and with only pointer allocation allowed,
-    // but if sizeof(size_t) == 4 then longs will be misaligned, and once array can hold actual structs the struct
+    // TODO: alignment
+    // sinc sizeof(size_t) == 4 longs be misaligned, and once array can hold actual structs the struct
     // size could be 16 or more, again misaligning the data.
     auto* arrayPointer = createMalloc(state, allocSize, "array");
     auto arrayValue = std::make_unique<GeneratedValue>(baseType->toArray(), arrayPointer);
     for (auto&& [i, genValue]: enumerate(genValues)) {
         // TODO: this should be size_t
-        auto indexValue = std::make_unique<GeneratedValue>(GeneratedType::get("long"),
-                                                           ConstantInt::get(state.sizeTy, APInt(64, i)));
+        auto indexValue = std::make_unique<GeneratedValue>(GeneratedType::get("int"),
+                                                           state.builder->CreateTrunc(
+                                                               ConstantInt::get(*state.ctx, APInt(64, i)),
+                                                               state.sizeTy));
         auto indexPointer = arrayValue->getArrayPointer(state, std::move(indexValue));
         state.builder->CreateStore(genValue->value, indexPointer->value);
     }

@@ -106,12 +106,16 @@ std::unique_ptr<GeneratedValue> GeneratedValue::getArrayPointer(ModuleState& sta
         return logError("type " + type->toString() + " is not an array");
     }
 
-    auto baseInt = state.builder->CreatePtrToInt(value, state.intPtrTy, "arr_base_int");
-    auto arrayInt = state.builder->CreateAdd(baseInt, ConstantExpr::getSizeOf(state.sizeTy), "arr_int");
+    auto baseInt = state.builder->CreatePtrToInt(value, state.sizeTy, "arr_base_int");
+    auto arrayInt = state.builder->CreateAdd(baseInt,
+                                             state.builder->CreateTrunc(ConstantExpr::getSizeOf(state.sizeTy),
+                                                                        state.sizeTy),
+                                             "arr_int");
 
-    auto indexOffset = state.builder->CreateMul(ConstantExpr::getSizeOf(baseType->getLLVMType(state)),
-                                                index->value,
-                                                "ix_offset");
+    auto indexOffset = state.builder->CreateMul(
+        state.builder->CreateTrunc(ConstantExpr::getSizeOf(baseType->getLLVMType(state)), state.sizeTy),
+        index->value,
+        "ix_offset");
     auto indexInt = state.builder->CreateAdd(arrayInt, indexOffset, "ix_int");
     auto indexPtr = state.builder->CreateIntToPtr(indexInt, PointerType::getUnqual(*state.ctx), "ix_ptr");
     return std::make_unique<GeneratedValue>(baseType, indexPtr);

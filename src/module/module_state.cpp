@@ -22,7 +22,7 @@ ModuleState::ModuleState(const ModuleConfig& config): config(config) {
     // TODO: set target triple here
     dl = std::make_unique<DataLayout>();
     intPtrTy = dl->getIntPtrType(*ctx);
-    // Note: should size_t be different from intptr_t?
+    // TODO: figure out how to get size_t (should almost always be intptr_t though)
     sizeTy = intPtrTy;
     scopeStack.push_back(std::vector<std::string>());
 }

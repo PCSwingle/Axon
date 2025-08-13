@@ -28,6 +28,7 @@ std::unique_ptr<GeneratedValue> SubscriptExprAST::codegenPointer(ModuleState& st
     if (!arrayVal) {
         return nullptr;
     }
+    // TODO: this has to be size_t
     auto indexVal = indexExpr->codegenValue(state);
     if (!indexVal) {
         return nullptr;

@@ -43,6 +43,13 @@ bool GeneratedType::isArray() {
     return type.ends_with("[]");
 }
 
+bool GeneratedType::isDefined(ModuleState& state) {
+    return isArray()
+               ? getArrayBase()->isDefined(state)
+               : isPrimitive() || getGenStruct(state);
+}
+
+
 GeneratedType* GeneratedType::getArrayBase() {
     return isArray() ? get(type.substr(0, type.length() - 2)) : nullptr;
 }

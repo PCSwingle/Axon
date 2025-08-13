@@ -50,6 +50,8 @@ public:
 
     bool isArray();
 
+    bool isDefined(ModuleState& state);
+
     GeneratedType* getArrayBase();
 
     GeneratedType* toArray();

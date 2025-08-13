@@ -351,6 +351,10 @@ bool FuncAST::codegen(ModuleState& state) {
     state.enterFunc(genFunction);
     for (int i = 0; i < signature.size(); i++) {
         auto* genVar = state.getVar(signature[i].identifier);
+        if (!genVar->type->isDefined(state)) {
+            logError("unknown type " + genVar->type->toString());
+            return false;
+        }
         auto* arg = function->getArg(i);
         state.builder->CreateStore(arg, genVar->value);
     }
@@ -384,6 +388,11 @@ bool VarAST::codegen(ModuleState& state) {
             return false;
         }
         GeneratedType* varType = type.value_or(value->type);
+        if (!varType->isDefined(state)) {
+            logError("unknown type " + varType->toString());
+            return false;
+        }
+
         if (!state.registerVar(raw->varName, varType)) {
             return false;
         }

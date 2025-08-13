@@ -36,7 +36,7 @@ bool GeneratedType::isPrimitive() {
 }
 
 bool GeneratedType::isFloating() {
-    return type == KW_FLOAT || type == KW_DOUBLE;
+    return type == KW_F32 || type == KW_F64;
 }
 
 bool GeneratedType::isArray() {
@@ -63,13 +63,17 @@ GeneratedStruct* GeneratedType::getGenStruct(ModuleState& state) {
 }
 
 Type* GeneratedType::getLLVMType(const ModuleState& state) {
-    if (type == KW_INT) {
+    if (type == KW_I8 || type == KW_U8) {
+        return Type::getInt8Ty(*state.ctx);
+    } else if (type == KW_I32 || type == KW_U32) {
         return Type::getInt32Ty(*state.ctx);
-    } else if (type == KW_LONG) {
+    } else if (type == KW_I64 || type == KW_U64) {
         return Type::getInt64Ty(*state.ctx);
-    } else if (type == KW_FLOAT) {
+    } else if (type == KW_USIZE || type == KW_ISIZE) {
+        return state.sizeTy;
+    } else if (type == KW_F32) {
         return Type::getFloatTy(*state.ctx);
-    } else if (type == KW_DOUBLE) {
+    } else if (type == KW_F64) {
         return Type::getDoubleTy(*state.ctx);
     } else if (type == KW_BOOL) {
         return Type::getInt1Ty(*state.ctx);

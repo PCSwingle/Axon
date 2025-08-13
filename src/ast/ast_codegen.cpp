@@ -36,10 +36,10 @@ std::unique_ptr<GeneratedValue> ValueExprAST::codegenValue(ModuleState& state) {
         if (rawValue.back() == 'L') {
             return logError("cannot use L on a floating point value");
         } else if (rawValue.back() == 'D') {
-            type = GeneratedType::get(KW_DOUBLE);
+            type = GeneratedType::get(KW_F64);
             apVal = APFloat(APFloat::IEEEdouble(), rawValue.substr(0, rawValue.size() - 1));
         } else {
-            type = GeneratedType::get(KW_FLOAT);
+            type = GeneratedType::get(KW_F32);
             apVal = APFloat(APFloat::IEEEsingle(), rawValue);
         }
         return std::make_unique<GeneratedValue>(type, ConstantFP::get(type->getLLVMType(state), apVal));
@@ -49,10 +49,10 @@ std::unique_ptr<GeneratedValue> ValueExprAST::codegenValue(ModuleState& state) {
         if (rawValue.back() == 'D') {
             return logError("cannot use D on an integer value");
         } else if (rawValue.back() == 'L') {
-            type = GeneratedType::get(KW_LONG);
+            type = GeneratedType::get(KW_I64);
             apVal = APInt(64, rawValue.substr(0, rawValue.size() - 1), 10);
         } else {
-            type = GeneratedType::get(KW_INT);
+            type = GeneratedType::get(KW_I32);
             apVal = APInt(32, rawValue, 10);
         }
         // todo: if number overflows raise error
@@ -146,15 +146,18 @@ std::unique_ptr<GeneratedValue> BinaryOpExprAST::codegenValue(ModuleState& state
 
     std::optional<Instruction::BinaryOps> op = getBinop(binOp, floating);
     std::optional<CmpInst::Predicate> cmpOp = getCmpop(binOp, floating);
+    GeneratedType* type;
     Value* val;
     if (op.has_value()) {
+        type = L->type;
         val = state.builder->CreateBinOp(op.value(), L->value, R->value, binOp + "_binop");
     } else if (cmpOp.has_value()) {
+        type = GeneratedType::get(KW_BOOL);
         val = state.builder->CreateCmp(cmpOp.value(), L->value, R->value, binOp + "_cmpop");
     } else {
         return logError("binop " + binOp + " not implemented yet");
     }
-    return std::make_unique<GeneratedValue>(L->type, val);
+    return std::make_unique<GeneratedValue>(type, val);
 }
 
 
@@ -298,13 +301,12 @@ std::unique_ptr<GeneratedValue> ArrayExprAST::codegenValue(ModuleState& state) {
                                                      state.sizeTy));
 
     // TODO: alignment
-    // sinc sizeof(size_t) == 4 longs be misaligned, and once array can hold actual structs the struct
+    // since sizeof(size_t) == 4 longs are misaligned, and once array can hold actual structs the struct
     // size could be 16 or more, again misaligning the data.
     auto* arrayPointer = createMalloc(state, allocSize, "array");
     auto arrayValue = std::make_unique<GeneratedValue>(baseType->toArray(), arrayPointer);
     for (auto&& [i, genValue]: enumerate(genValues)) {
-        // TODO: this should be size_t
-        auto indexValue = std::make_unique<GeneratedValue>(GeneratedType::get("int"),
+        auto indexValue = std::make_unique<GeneratedValue>(GeneratedType::get(KW_USIZE),
                                                            state.builder->CreateTrunc(
                                                                ConstantInt::get(*state.ctx, APInt(64, i)),
                                                                state.sizeTy));
@@ -479,6 +481,10 @@ bool WhileAST::codegen(ModuleState& state) {
 
     auto val = expr->codegenValue(state);
     if (!val) {
+        return false;
+    }
+    if (!val->type->isBool()) {
+        logError("must use bool value in while statement");
         return false;
     }
     state.builder->CreateCondBr(val->value, loopBB, postBB);

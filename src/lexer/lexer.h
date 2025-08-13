@@ -99,17 +99,22 @@ inline const std::vector<std::string> ALLOPS = []() {
     return allOps;
 }();
 
-// TODO: decide if should change to 'i32, i64, etc.'
-// TODO: add unsigned types?
-// TODO: add pointer type?
-// TODO: add size type? (imo just pointer type would be better)
+// TODO: figure out if i want ptr types (only very rarely differnt from size anyways)
 // types
 #define X_TYPE \
-    TYPE(INT, "int") \
-    TYPE(LONG, "long") \
-    TYPE(FLOAT, "float") \
-    TYPE(DOUBLE, "double") \
-    TYPE(BOOL, "bool") \
+    TYPE(I8, "i8")       \
+    TYPE(U8, "u8")       \
+    TYPE(I32, "i32")     \
+    TYPE(U32, "u32")     \
+    TYPE(I64, "i64")     \
+    TYPE(U64, "u64")     \
+    TYPE(ISIZE, "isize") \
+    TYPE(USIZE, "usize") \
+/*  TYPE(IPTR, "iptr")   \
+    TYPE(UPTR, "uptr")*/ \
+    TYPE(F32, "f32")     \
+    TYPE(F64, "f64")     \
+    TYPE(BOOL, "bool")   \
     TYPE(VOID, "void")
 
 inline const std::unordered_set<std::string> TYPES{

@@ -235,7 +235,7 @@ std::unique_ptr<GeneratedValue> CallExprAST::codegenValue(ModuleState& state, Ge
         if (genFunction->signature[i].type != arg->type) {
             return logError(
                 "expected type " + genFunction->signature[i].type->toString() + ", got type " + arg->type->
-                toString());
+                toString() + ". Call: " + toString());
         }
         argsV.push_back(arg->value);
     }

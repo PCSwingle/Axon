@@ -21,9 +21,14 @@ ModuleState::ModuleState(const ModuleConfig& config): config(config) {
     builder = std::make_unique<IRBuilder<> >(*ctx);
     // TODO: set target triple here
     dl = std::make_unique<DataLayout>();
+
     intPtrTy = dl->getIntPtrType(*ctx);
     // TODO: figure out how to get size_t (should almost always be intptr_t though)
     sizeTy = intPtrTy;
+    // TODO: I don't think llvm does padding / alignment, so we have to do it ourselves
+    auto elements = std::vector<Type*>{PointerType::getUnqual(*ctx), sizeTy};
+    arrFatPtrTy = StructType::create(*ctx, elements, "$arrFatPtrTy");
+
     scopeStack.push_back(std::vector<std::string>());
 }
 

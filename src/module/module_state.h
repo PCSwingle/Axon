@@ -31,8 +31,11 @@ public:
     std::unique_ptr<IRBuilder<> > builder;
     std::unique_ptr<Module> module;
     std::unique_ptr<DataLayout> dl;
+
     Type* intPtrTy;
     Type* sizeTy;
+    // Array pointers are fat pointers consisting of a pointer to the array and the size of the array
+    StructType* arrFatPtrTy;
 
     const ModuleConfig& config;
 

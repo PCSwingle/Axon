@@ -36,7 +36,7 @@ std::unique_ptr<GeneratedValue> SubscriptExprAST::codegenPointer(ModuleState& st
     if (indexVal->type != GeneratedType::get(KW_USIZE)) {
         return logError("arrays must be indexed with usize type, got " + indexVal->type->toString());
     }
-    auto indexPointer = arrayVal->getArrayPointer(state, std::move(indexVal));
+    auto indexPointer = arrayVal->getArrayPointer(state, indexVal);
     if (!indexPointer) {
         return nullptr;
     }

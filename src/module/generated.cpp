@@ -91,6 +91,8 @@ Type* GeneratedType::getLLVMType(const ModuleState& state) {
     } else if (TYPES.contains(type)) {
         logError("type " + type + " not implemented yet");
         assert(false);
+    } else if (isArray()) {
+        return state.arrFatPtrTy;
     } else {
         // Checking if the struct actually exists here would be a massive PITA
         // for such marginally low value, so we just assume it's a pointer.
@@ -120,23 +122,20 @@ std::unique_ptr<GeneratedValue> GeneratedValue::getFieldPointer(ModuleState& sta
 }
 
 std::unique_ptr<GeneratedValue> GeneratedValue::getArrayPointer(ModuleState& state,
-                                                                std::unique_ptr<GeneratedValue> index) {
+                                                                const std::unique_ptr<GeneratedValue>& index) {
     auto baseType = type->getArrayBase();
     if (!baseType) {
         return logError("type " + type->toString() + " is not an array");
     }
+    assert(type->getLLVMType(state) == state.arrFatPtrTy);
 
-    auto baseInt = state.builder->CreatePtrToInt(value, state.sizeTy, "arr_base_int");
-    auto arrayInt = state.builder->CreateAdd(baseInt,
-                                             state.builder->CreateTrunc(ConstantExpr::getSizeOf(state.sizeTy),
-                                                                        state.sizeTy),
-                                             "arr_int");
-
+    auto basePtr = state.builder->CreateExtractValue(value, std::vector<unsigned>{0}, "arr_ptr_extract");
+    auto baseInt = state.builder->CreatePtrToInt(basePtr, state.sizeTy, "arr_base_int");
     auto indexOffset = state.builder->CreateMul(
         state.builder->CreateTrunc(ConstantExpr::getSizeOf(baseType->getLLVMType(state)), state.sizeTy),
         index->value,
         "ix_offset");
-    auto indexInt = state.builder->CreateAdd(arrayInt, indexOffset, "ix_int");
+    auto indexInt = state.builder->CreateAdd(baseInt, indexOffset, "ix_int");
     auto indexPtr = state.builder->CreateIntToPtr(indexInt, PointerType::getUnqual(*state.ctx), "ix_ptr");
     return std::make_unique<GeneratedValue>(baseType, indexPtr);
 }

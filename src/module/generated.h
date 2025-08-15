@@ -77,7 +77,7 @@ struct GeneratedValue {
 
     std::unique_ptr<GeneratedValue> getFieldPointer(ModuleState& state, const std::string& fieldName);
 
-    std::unique_ptr<GeneratedValue> getArrayPointer(ModuleState& state, std::unique_ptr<GeneratedValue> index);
+    std::unique_ptr<GeneratedValue> getArrayPointer(ModuleState& state, const std::unique_ptr<GeneratedValue>& index);
 };
 
 struct GeneratedFunction {

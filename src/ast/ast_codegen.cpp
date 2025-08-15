@@ -333,22 +333,27 @@ std::unique_ptr<GeneratedValue> ArrayExprAST::codegenValue(ModuleState& state, G
     auto* typeSize = state.builder->
             CreateTrunc(ConstantExpr::getSizeOf(baseType->getLLVMType(state)), state.sizeTy);
     auto* allocSize = state.builder->CreateMul(ConstantInt::get(state.sizeTy, genValues.size()), typeSize);
-    allocSize = state.builder->CreateAdd(allocSize,
-                                         state.builder->
-                                         CreateTrunc(ConstantExpr::getSizeOf(baseType->getLLVMType(state)),
-                                                     state.sizeTy));
 
-    // TODO: alignment
-    // since sizeof(size_t) == 4 longs are misaligned, and once array can hold actual structs the struct
-    // size could be 16 or more, again misaligning the data.
+    // TODO: figure out if we need to align anything ever? I don't think we do as long as we ensure structs are aligned
     auto* arrayPointer = createMalloc(state, allocSize, "array");
-    auto arrayValue = std::make_unique<GeneratedValue>(baseType->toArray(), arrayPointer);
+    auto* fatPointerStruct = ConstantStruct::get(state.arrFatPtrTy,
+                                                 std::vector<Constant*>{
+                                                     UndefValue::get(PointerType::getUnqual(*state.ctx)),
+                                                     ConstantInt::get(state.sizeTy, APInt(64, values.size()))
+                                                 }
+    );
+    auto* arrayFatPointer = state.builder->CreateInsertValue(fatPointerStruct,
+                                                             arrayPointer,
+                                                             std::vector<unsigned>{0},
+                                                             "arr_ptr_insert");
+    auto arrayValue = std::make_unique<GeneratedValue>(baseType->toArray(), arrayFatPointer);
+
     for (auto&& [i, genValue]: enumerate(genValues)) {
         auto indexValue = std::make_unique<GeneratedValue>(GeneratedType::get(KW_USIZE),
                                                            state.builder->CreateTrunc(
                                                                ConstantInt::get(*state.ctx, APInt(64, i)),
                                                                state.sizeTy));
-        auto indexPointer = arrayValue->getArrayPointer(state, std::move(indexValue));
+        auto indexPointer = arrayValue->getArrayPointer(state, indexValue);
         state.builder->CreateStore(genValue->value, indexPointer->value);
     }
     return arrayValue;

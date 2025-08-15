@@ -44,6 +44,7 @@ bool FuncAST::postregister(ModuleState& state, const std::string& unit) {
 }
 
 bool StructAST::preregister(ModuleState& state, const std::string& unit) {
+    // TODO: verify struct body
     if (!state.registerGlobalStruct(unit, structName, fields)) {
         return false;
     }

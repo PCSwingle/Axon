@@ -361,6 +361,10 @@ std::unique_ptr<GeneratedValue> ArrayExprAST::codegenValue(ModuleState& state, G
 
 // top level statements
 bool ImportAST::codegen(ModuleState& state) {
+    if (aliases.size() == 0) {
+        logError("import statement with nothing imported found");
+        return false;
+    }
     return true;
 }
 
@@ -419,11 +423,18 @@ bool FuncAST::codegen(ModuleState& state) {
 
 // statements
 bool VarAST::codegen(ModuleState& state) {
+    if (type.has_value() && !definition) {
+        logError("Can only set variable type on definition");
+        return false;
+    }
+    if (definition && varOp != "=") {
+        logError("Cannot use binary variable assignment operator on variable definition");
+    }
+
     std::unique_ptr<GeneratedValue> varPointer;
     std::unique_ptr<GeneratedValue> value;
 
     // fml ;)
-    assert(!(definition && varOp != "="));
     if (definition) {
         value = expr->codegenValue(state, type.value_or(nullptr));
 

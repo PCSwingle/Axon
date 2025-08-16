@@ -2,7 +2,7 @@
 
 #include "lexer.h"
 #include "logging.h"
-
+#include "ast/ast.h"
 
 char Lexer::next() {
     index += 1;
@@ -14,7 +14,7 @@ char Lexer::next() {
     return cur;
 }
 
-char Lexer::peek_char(int num) {
+char Lexer::peekChar(int num) {
     if (index + num >= text.length()) {
         return EOF;
     } else {
@@ -23,16 +23,20 @@ char Lexer::peek_char(int num) {
 }
 
 Token Lexer::consume() {
-    token_index += 1;
-    if (token_index < tokens.size()) {
-        curToken = tokens[token_index];
-    }
+    do {
+        tokenIndex += 1;
+        if (tokenIndex < tokens.size()) {
+            curToken = tokens[tokenIndex];
+        } else {
+            break;
+        }
+    } while (curToken.type == TOK_WHITESPACE);
     return curToken;
 }
 
-Token Lexer::peek(int num) {
-    if (token_index + num < tokens.size()) {
-        return tokens[token_index + num];
+Token Lexer::peek(const int num) {
+    if (tokenIndex + num < tokens.size()) {
+        return tokens[tokenIndex + num];
     } else {
         return Token();
     }
@@ -41,14 +45,19 @@ Token Lexer::peek(int num) {
 
 Token Lexer::process() {
     // whitespace
-    while (isspace(cur) && cur != '\n') {
-        next();
+    if (isspace(cur) && cur != '\n') {
+        std::string rawToken;
+        while (isspace(cur) && cur != '\n') {
+            rawToken += cur;
+            next();
+        }
+        return Token(rawToken, TOK_WHITESPACE);
     }
 
     // token delimiters (; and newline)
     // TODO: newline should be treated differently from ;
     if (cur == ';' || cur == '\n') {
-        std::string rawToken{1, cur};
+        std::string rawToken(1, cur);
         next();
         return Token(rawToken, TOK_DELIMITER);
     }
@@ -99,11 +108,11 @@ Token Lexer::process() {
         }
         return process();
     }
-    if (cur == '/' && peek_char(1) == '*') {
+    if (cur == '/' && peekChar(1) == '*') {
         // prevent /*/ from being a full comment
         next();
         next();
-        while (!(cur == '*' && peek_char(1) == '/') && cur != EOF) {
+        while (!(cur == '*' && peekChar(1) == '/') && cur != EOF) {
             next();
         }
         return process();
@@ -151,4 +160,109 @@ Token Lexer::process() {
     auto rawToken = std::string(1, cur);
     next();
     return Token(rawToken, TOK_UNKNOWN);
+}
+
+void Lexer::startDebugStatement() {
+    debugStatementStart = tokenIndex;
+}
+
+
+void Lexer::pushDebugInfo() {
+    debugTokenStack.push_back(tokenIndex);
+}
+
+DebugInfo Lexer::popDebugInfo(const bool remove) {
+    auto startToken = debugTokenStack.back();
+    if (remove) {
+        debugTokenStack.pop_back();
+    }
+    return DebugInfo(debugStatementStart, startToken, tokenIndex);
+}
+
+std::nullptr_t Lexer::expected(const std::string& expected) {
+    parsingError = "Expected " + expected + ", got " + (curToken.rawToken == "\n" ? "\\n" : curToken.rawToken);
+    return nullptr;
+}
+
+
+std::string Lexer::formatParsingError(const std::string& unit,
+                                      const std::string& filename) {
+    return formatError(
+        DebugInfo(debugStatementStart, tokenIndex, tokenIndex + 1),
+        unit,
+        filename,
+        parsingError);
+}
+
+std::string Lexer::formatError(const DebugInfo& debugInfo,
+                               const std::string& unit,
+                               const std::string& filename,
+                               const std::string& error) {
+    int line = 1;
+    int column = 1;
+    for (int i = 0; i < debugInfo.startToken; i++) {
+        if (tokens[i].rawToken == "\n") {
+            line += 1;
+            column = 1;
+        } else {
+            column += tokens[i].rawToken.length();
+        }
+    }
+
+    auto prefix = "    > ";
+    std::string highlighted = "";
+    highlighted += prefix;
+
+    int startColumn = -1;
+    int endColumn = -1;
+    int curColumn = 0;
+
+    for (int i = debugInfo.statementStartToken; i < tokens.size(); i++) {
+        auto token = tokens[i];
+        if (token.type == TOK_EOF) {
+            break;
+        }
+
+        if (i >= debugInfo.startToken && startColumn == -1) {
+            startColumn = curColumn;
+        }
+        if (i == debugInfo.endToken) {
+            endColumn = curColumn;
+        }
+
+        highlighted += tokens[i].rawToken;
+        curColumn += tokens[i].rawToken.length();
+        if (token.type == TOK_DELIMITER) {
+            if (tokens[i].rawToken != "\n") {
+                highlighted += "\n";
+            }
+            highlighted += prefix;
+            if (startColumn != -1) {
+                if (endColumn == -1) {
+                    endColumn = curColumn;
+                }
+                highlighted += std::string(startColumn, ' ');
+                highlighted += std::string(endColumn - startColumn, '^');
+                if (i < debugInfo.endToken) {
+                    highlighted += "\n";
+                    highlighted += prefix;
+                }
+            }
+            startColumn = -1;
+            endColumn = -1;
+            curColumn = 0;
+            if (i >= debugInfo.endToken) {
+                break;
+            }
+        }
+    }
+
+    return std::format("Error in {} at {}:{}:{}: {}\n{}\n",
+                       unit,
+                       filename,
+                       line,
+                       column,
+                       error,
+                       highlighted
+    );
 }

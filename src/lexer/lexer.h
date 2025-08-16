@@ -9,7 +9,7 @@
 #include <ranges>
 #include <vector>
 
-#include "debug_consts.h"
+struct DebugInfo;
 
 enum TokenType {
     TOK_IDENTIFIER,
@@ -20,6 +20,7 @@ enum TokenType {
     TOK_BINOP,
     TOK_UNOP,
     TOK_VAROP,
+    TOK_WHITESPACE,
     TOK_DELIMITER,
     TOK_UNKNOWN,
 };
@@ -184,31 +185,37 @@ struct Token {
 };
 
 class Lexer {
-    char cur = EOF;
     std::string text;
+
+    char cur = EOF;
     size_t index = -1;
 
     std::vector<Token> tokens;
-    size_t token_index = -1;
+    size_t tokenIndex = -1;
 
     char next();
 
-    char peek_char(int num);
+    char peekChar(int num);
 
     Token process();
 
+    int debugStatementStart;
+    std::vector<int> debugTokenStack;
+
 public:
+    std::string parsingError;
+
     Token curToken;
 
     explicit Lexer(std::string text): text(std::move(text)) {
+        debugStatementStart = 0;
+        debugTokenStack = std::vector<int>{};
+
         next();
         Token token;
         do {
             token = process();
             tokens.push_back(token);
-            if constexpr (DEBUG_LEXER_PRINT_TOKENS) {
-                std::cout << "Token: " << token.rawToken << " Type: " << token.type << std::endl;
-            }
         } while (token.type != TOK_EOF);
         consume();
     }
@@ -216,4 +223,20 @@ public:
     Token consume();
 
     Token peek(int num);
+
+    void startDebugStatement();
+
+    void pushDebugInfo();
+
+    DebugInfo popDebugInfo(bool remove = true);
+
+    std::nullptr_t expected(const std::string& expected);
+
+    std::string formatParsingError(const std::string& unit,
+                                   const std::string& filename);
+
+    std::string formatError(const DebugInfo& debugInfo,
+                            const std::string& unit,
+                            const std::string& filename,
+                            const std::string& error);
 };

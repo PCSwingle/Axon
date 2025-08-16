@@ -3,14 +3,13 @@
 
 #include "lexer/lexer.h"
 #include "logging.h"
-#include "debug_consts.h"
 
 #include "ast.h"
 #include "module/generated.h"
 
 GeneratedType* parseType(Lexer& lexer) {
     if (lexer.curToken.type != TOK_TYPE && lexer.curToken.type != TOK_IDENTIFIER) {
-        return logError("Expected type, got " + lexer.curToken.rawToken);
+        return lexer.expected("type");
     }
     auto type = lexer.curToken.rawToken;
     lexer.consume();
@@ -29,24 +28,28 @@ std::unique_ptr<ExprAST> parseRHSExpr(Lexer& lexer) {
 
     if (lexer.curToken.type == TOK_VALUE) {
         // values
-        auto value = lexer.curToken.rawToken;
+        lexer.pushDebugInfo();
+        expr = std::make_unique<ValueExprAST>(lexer.curToken.rawToken);
         lexer.consume();
-        expr = std::make_unique<ValueExprAST>(value);
+        expr->setDebugInfo(lexer.popDebugInfo());
     } else if (lexer.curToken.type == TOK_IDENTIFIER) {
         // variables and calls
         if (lexer.peek(1).rawToken == "(") {
             expr = parseCall(lexer);
         } else {
+            lexer.pushDebugInfo();
             auto identifier = lexer.curToken.rawToken;
             lexer.consume();
             expr = std::make_unique<VariableExprAST>(std::move(identifier));
+            expr->setDebugInfo(lexer.popDebugInfo());
         }
     } else if (lexer.curToken.rawToken == "(") {
         // parentheses
+        // TODO: make this it's own ast node (for debuginfo purposes
         lexer.consume();
         expr = parseExpr(lexer);
         if (expr && lexer.curToken.rawToken != ")") {
-            return logError("Expected closing ) for parenthetical expression");
+            return lexer.expected(")");
         }
         lexer.consume();
     } else if (lexer.curToken.rawToken == "~") {
@@ -60,11 +63,13 @@ std::unique_ptr<ExprAST> parseRHSExpr(Lexer& lexer) {
     } else if (lexer.curToken.type == TOK_UNOP || lexer.curToken.rawToken == "-") {
         // unary ops
         // special case for - because it's a binop and a unop
+        lexer.pushDebugInfo();
         auto unOp = lexer.curToken.rawToken;
         lexer.consume();
         expr = std::make_unique<UnaryOpExprAST>(parseRHSExpr(lexer), unOp);
+        expr->setDebugInfo(lexer.popDebugInfo());
     } else {
-        return logError("Expected expression, got " + lexer.curToken.rawToken);
+        return lexer.expected("expression");
     }
     if (!expr) {
         return nullptr;
@@ -79,6 +84,7 @@ std::unique_ptr<ExprAST> parseRHSExpr(Lexer& lexer) {
 }
 
 std::unique_ptr<ExprAST> parseExpr(Lexer& lexer) {
+    lexer.pushDebugInfo();
     auto firstExpr = parseRHSExpr(lexer);
     if (!firstExpr) {
         return nullptr;
@@ -91,6 +97,7 @@ std::unique_ptr<ExprAST> parseExpr(Lexer& lexer) {
         auto op = lexer.curToken.rawToken;
         lexer.consume();
 
+        lexer.pushDebugInfo();
         auto expr = parseRHSExpr(lexer);
         if (!expr) {
             return nullptr;
@@ -104,6 +111,8 @@ std::unique_ptr<ExprAST> parseExpr(Lexer& lexer) {
             auto binOp = opStack.back();
             opStack.pop_back();
             auto binExpr = std::make_unique<BinaryOpExprAST>(std::move(LHS), std::move(RHS), binOp);
+            lexer.popDebugInfo();
+            binExpr->setDebugInfo(lexer.popDebugInfo(false));
             stack.push_back(std::move(binExpr));
         }
         stack.push_back(std::move(expr));
@@ -117,116 +126,140 @@ std::unique_ptr<ExprAST> parseExpr(Lexer& lexer) {
         auto binOp = opStack.back();
         opStack.pop_back();
         auto binExpr = std::make_unique<BinaryOpExprAST>(std::move(LHS), std::move(RHS), binOp);
+        lexer.popDebugInfo();
+        binExpr->setDebugInfo(lexer.popDebugInfo(false));
         stack.push_back(std::move(binExpr));
     }
+    lexer.popDebugInfo();
     return std::move(stack.back());
 }
 
 std::unique_ptr<IfAST> parseIf(Lexer& lexer, const bool onIf) {
+    lexer.pushDebugInfo();
+
     auto startToken = onIf ? KW_IF : KW_ELIF;
     if (lexer.curToken.rawToken != startToken) {
-        return logError("Expected " + startToken);
+        return lexer.expected(startToken);
     }
     lexer.consume();
     if (lexer.curToken.rawToken != "(") {
-        return logError("Expected (");
+        return lexer.expected("(");
     }
     lexer.consume();
-    if (auto expr = parseExpr(lexer)) {
-        if (lexer.curToken.rawToken != ")") {
-            return logError("Expected ) for if statement");
-        }
-        lexer.consume();
-        if (auto block = parseBlock(lexer)) {
-            std::optional<std::unique_ptr<BlockAST> > elseBlock;
-            if (lexer.curToken.rawToken == KW_ELIF) {
-                auto elseStatement = parseIf(lexer, false);
-                if (!elseStatement) {
-                    return nullptr;
-                }
-                std::vector<std::unique_ptr<StatementAST> > elseBlockStatements;
-                elseBlockStatements.push_back(std::move(elseStatement));
-                elseBlock = std::make_unique<BlockAST>(std::move(elseBlockStatements));
-            } else if (lexer.curToken.rawToken == KW_ELSE) {
-                lexer.consume();
-                elseBlock = parseBlock(lexer);
-                if (!elseBlock) {
-                    return nullptr;
-                }
-            }
-            return std::make_unique<IfAST>(std::move(expr),
-                                           std::move(block),
-                                           std::move(elseBlock)
-            );
-        } else {
-            return nullptr;
-        }
-    } else {
+
+    auto expr = parseExpr(lexer);
+    if (!expr) {
         return nullptr;
     }
+    if (lexer.curToken.rawToken != ")") {
+        return lexer.expected(")");
+    }
+    lexer.consume();
+
+    auto block = parseBlock(lexer);
+    if (!block) {
+        return nullptr;
+    }
+
+    std::optional<std::unique_ptr<BlockAST> > elseBlock;
+    if (lexer.curToken.rawToken == KW_ELIF) {
+        auto elseStatement = parseIf(lexer, false);
+        if (!elseStatement) {
+            return nullptr;
+        }
+        std::vector<std::unique_ptr<StatementAST> > elseBlockStatements;
+        elseBlockStatements.push_back(std::move(elseStatement));
+        elseBlock = std::make_unique<BlockAST>(std::move(elseBlockStatements));
+        elseBlock.value()->setDebugInfo(lexer.popDebugInfo());
+    } else if (lexer.curToken.rawToken == KW_ELSE) {
+        lexer.consume();
+        elseBlock = parseBlock(lexer);
+        if (!elseBlock) {
+            return nullptr;
+        }
+    }
+
+    auto ast = std::make_unique<IfAST>(std::move(expr),
+                                       std::move(block),
+                                       std::move(elseBlock)
+    );
+    ast->setDebugInfo(lexer.popDebugInfo());
+    return ast;
 }
 
 std::unique_ptr<WhileAST> parseWhile(Lexer& lexer) {
+    lexer.pushDebugInfo();
+
     if (lexer.curToken.rawToken != KW_WHILE) {
-        return logError("Expected while");
+        return lexer.expected("while");
     }
     lexer.consume();
     if (lexer.curToken.rawToken != "(") {
-        return logError("Expected (");
+        return lexer.expected("(");
     }
     lexer.consume();
-    if (auto expr = parseExpr(lexer)) {
-        if (lexer.curToken.rawToken != ")") {
-            return logError("Expected ) for while statement");
-        }
-        lexer.consume();
-        if (auto block = parseBlock(lexer)) {
-            return std::make_unique<WhileAST>(std::move(expr), std::move(block));
-        } else {
-            return nullptr;
-        }
-    } else {
+
+    auto expr = parseExpr(lexer);
+    if (!expr) {
         return nullptr;
     }
+    if (lexer.curToken.rawToken != ")") {
+        return lexer.expected(")");
+    }
+    lexer.consume();
+
+    auto block = parseBlock(lexer);
+    if (!block) {
+        return nullptr;
+    }
+
+    auto ast = std::make_unique<WhileAST>(std::move(expr), std::move(block));
+    ast->setDebugInfo(lexer.popDebugInfo());
+    return ast;
 }
 
 std::unique_ptr<ReturnAST> parseReturn(Lexer& lexer) {
+    lexer.pushDebugInfo();
+
     if (lexer.curToken.rawToken != KW_RETURN) {
-        return logError("expected return");
+        return lexer.expected("return");
     }
     lexer.consume();
 
+    std::optional<std::unique_ptr<ExprAST> > expr{};
     if (lexer.curToken.type != TOK_DELIMITER) {
-        auto expr = parseExpr(lexer);
-        if (!expr) {
+        expr = parseExpr(lexer);
+        if (!expr.value()) {
             return nullptr;
         }
-        return std::make_unique<ReturnAST>(std::move(expr));
-    } else {
-        return std::make_unique<ReturnAST>(std::optional<std::unique_ptr<ExprAST> >{});
     }
+    auto ast = std::make_unique<ReturnAST>(std::move(expr));
+    ast->setDebugInfo(lexer.popDebugInfo());
+    return ast;
 }
 
 std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
+    lexer.pushDebugInfo();
+
     bool definition = false;
     if (lexer.curToken.rawToken == KW_LET) {
         definition = true;
         lexer.consume();
     }
 
+    // TODO: move this into parsevariable function
+    lexer.pushDebugInfo();
     if (lexer.curToken.type != TOK_IDENTIFIER) {
-        return logError("Expected variable to assign");
+        return lexer.expected("variable identifier");
     }
     std::unique_ptr<AssignableAST> variableExpr = std::make_unique<VariableExprAST>(lexer.curToken.rawToken);
     lexer.consume();
+    variableExpr->setDebugInfo(lexer.popDebugInfo());
     variableExpr = parseAccessors(lexer, std::move(variableExpr));
 
     std::optional<GeneratedType*> type;
     if (lexer.curToken.rawToken == ":") {
         lexer.consume();
-        if (!definition) {
-            return logError("Can only set variable type on definition");
-        }
         type = parseType(lexer);
         if (!type.value()) {
             return nullptr;
@@ -234,7 +267,7 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
     }
 
     if (lexer.curToken.type != TOK_VAROP) {
-        return logError("Expected variable assignment operator, got " + lexer.curToken.rawToken);
+        return lexer.expected("variable assignment operator");
     }
     auto varOp = lexer.curToken.rawToken;
     lexer.consume();
@@ -243,21 +276,22 @@ std::unique_ptr<VarAST> parseVar(Lexer& lexer) {
     if (!expr) {
         return nullptr;
     }
-    if (varOp != "=" && definition) {
-        return logError("cannot use binary varop on definition");
-    }
-    return std::make_unique<VarAST>(definition, std::move(variableExpr), type, varOp, std::move(expr));
+
+    auto ast = std::make_unique<VarAST>(definition, std::move(variableExpr), type, varOp, std::move(expr));
+    ast->setDebugInfo(lexer.popDebugInfo());
+    return ast;
 }
 
 std::unique_ptr<CallExprAST> parseCall(Lexer& lexer) {
+    lexer.pushDebugInfo();
+
     if (lexer.curToken.type != TOK_IDENTIFIER) {
-        return logError("Expected variable or function call identifier");
+        return lexer.expected("function identifier");
     }
     auto identifier = lexer.curToken.rawToken;
     lexer.consume();
-
     if (lexer.curToken.rawToken != "(") {
-        return logError("Expected opening ( for function call");
+        return lexer.expected("(");
     }
     lexer.consume();
 
@@ -271,35 +305,42 @@ std::unique_ptr<CallExprAST> parseCall(Lexer& lexer) {
         if (lexer.curToken.rawToken == ",") {
             lexer.consume();
         } else if (lexer.curToken.rawToken != ")") {
-            return logError("Expected closing ) for function call");
+            return lexer.expected(")");
         }
     }
     lexer.consume();
-    return std::make_unique<CallExprAST>(identifier, std::move(args));
+
+    auto ast = std::make_unique<CallExprAST>(identifier, std::move(args));
+    ast->setDebugInfo(lexer.popDebugInfo());
+    return ast;
 }
 
 template<std::derived_from<ExprAST> T>
 std::unique_ptr<T> parseAccessors(Lexer& lexer, std::unique_ptr<T> expr) {
     while (lexer.curToken.rawToken == "." || lexer.curToken.rawToken == "[") {
         if (lexer.curToken.rawToken == ".") {
+            lexer.pushDebugInfo();
             lexer.consume();
             if (lexer.curToken.type != TOK_IDENTIFIER) {
-                return logError("expected field name for member access, got " + lexer.curToken.rawToken);
+                return lexer.expected("field identifier");
             }
             auto fieldName = lexer.curToken.rawToken;
             lexer.consume();
             expr = std::make_unique<MemberAccessExprAST>(std::move(expr), std::move(fieldName));
+            expr->setDebugInfo(lexer.popDebugInfo());
         } else if (lexer.curToken.rawToken == "[") {
+            lexer.pushDebugInfo();
             lexer.consume();
             auto indexExpr = parseExpr(lexer);
             if (!indexExpr) {
                 return nullptr;
             }
             if (lexer.curToken.rawToken != "]") {
-                return logError("expected closing ] for subscript, got " + lexer.curToken.rawToken);
+                return lexer.expected("]");
             }
             lexer.consume();
             expr = std::make_unique<SubscriptExprAST>(std::move(expr), std::move(indexExpr));
+            expr->setDebugInfo(lexer.popDebugInfo());
         } else {
             assert(false);
         }
@@ -308,8 +349,10 @@ std::unique_ptr<T> parseAccessors(Lexer& lexer, std::unique_ptr<T> expr) {
 }
 
 std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer) {
+    lexer.pushDebugInfo();
+
     if (lexer.curToken.rawToken != "~") {
-        return logError("expected ~ for constructor, got " + lexer.curToken.rawToken);
+        return lexer.expected("~");
     }
     lexer.consume();
 
@@ -319,7 +362,7 @@ std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer) {
     }
 
     if (lexer.curToken.rawToken != "{") {
-        return logError("expected opening { for constructor, got " + lexer.curToken.rawToken);
+        return lexer.expected("{");
     }
     lexer.consume();
 
@@ -331,16 +374,16 @@ std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer) {
             continue;
         }
         if (lexer.curToken.type != TOK_IDENTIFIER) {
-            return logError("expected constructor field name, got " + lexer.curToken.rawToken);
+            return lexer.expected("field identifier");
         }
         auto valueName = lexer.curToken.rawToken;
         if (values.contains(valueName)) {
-            return logError("found duplicate field name " + valueName + " in constructor");
+            return lexer.expected("unique field identifier");
         }
         lexer.consume();
 
         if (lexer.curToken.rawToken != ":") {
-            return logError("expected : after field name in constructor, got " + lexer.curToken.rawToken);
+            return lexer.expected(":");
         }
         lexer.consume();
 
@@ -353,22 +396,26 @@ std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer) {
         if (lexer.curToken.rawToken == ",") {
             lexer.consume();
         } else if (lexer.curToken.rawToken != "}") {
-            return logError("Expected closing } for constructor, got " + lexer.curToken.rawToken);
+            return lexer.expected("}");
         }
     }
     lexer.consume();
 
-    return std::make_unique<ConstructorExprAST>(type, std::move(values));
+    auto ast = std::make_unique<ConstructorExprAST>(type, std::move(values));
+    ast->setDebugInfo(lexer.popDebugInfo());
+    return ast;
 }
 
 std::unique_ptr<ArrayExprAST> parseArray(Lexer& lexer) {
+    lexer.pushDebugInfo();
+
     if (lexer.curToken.rawToken != "~") {
-        return logError("expected ~ for array, got " + lexer.curToken.rawToken);
+        return lexer.expected("~");
     }
     lexer.consume();
 
     if (lexer.curToken.rawToken != "[") {
-        return logError("expected opening [ for array, got " + lexer.curToken.rawToken);
+        return lexer.expected("[");
     }
     lexer.consume();
 
@@ -389,34 +436,38 @@ std::unique_ptr<ArrayExprAST> parseArray(Lexer& lexer) {
         if (lexer.curToken.rawToken == ",") {
             lexer.consume();
         } else if (lexer.curToken.rawToken != "]") {
-            return logError("Expected closing ] for array, got " + lexer.curToken.rawToken);
+            return lexer.expected("]");
         }
     }
     lexer.consume();
 
-    return std::make_unique<ArrayExprAST>(std::move(values));
+    auto ast = std::make_unique<ArrayExprAST>(std::move(values));
+    ast->setDebugInfo(lexer.popDebugInfo());
+    return ast;
 }
 
 std::unique_ptr<ImportAST> parseImport(Lexer& lexer) {
+    lexer.pushDebugInfo();
+
     if (lexer.curToken.rawToken != KW_FROM) {
-        return logError("expected from, got " + lexer.curToken.rawToken);
+        return lexer.expected("from");
     }
     lexer.consume();
 
     if (lexer.curToken.type != TOK_IDENTIFIER) {
-        return logError("expected import unit, got " + lexer.curToken.rawToken);
+        return lexer.expected("module identifier");
     }
     auto unit = lexer.curToken.rawToken;
     lexer.consume();
 
     while (lexer.curToken.rawToken != KW_IMPORT) {
         if (lexer.curToken.rawToken != ".") {
-            return logError("expected import, got " + lexer.curToken.rawToken);
+            return lexer.expected("import");
         }
         unit += ".";
         lexer.consume();
         if (lexer.curToken.type != TOK_IDENTIFIER) {
-            return logError("expected import unit, got " + lexer.curToken.rawToken);
+            return lexer.expected("unit identifier");
         }
         unit += lexer.curToken.rawToken;
         lexer.consume();
@@ -426,7 +477,7 @@ std::unique_ptr<ImportAST> parseImport(Lexer& lexer) {
     std::unordered_map<std::string, std::string> aliases;
     while (lexer.curToken.type != TOK_DELIMITER) {
         if (lexer.curToken.type != TOK_IDENTIFIER) {
-            return logError("expected import identifier, got " + lexer.curToken.rawToken);
+            return lexer.expected("importable identifier");
         }
         auto imported = lexer.curToken.rawToken;
         std::string alias;
@@ -434,7 +485,7 @@ std::unique_ptr<ImportAST> parseImport(Lexer& lexer) {
         if (lexer.curToken.rawToken == KW_AS) {
             lexer.consume();
             if (lexer.curToken.type != TOK_IDENTIFIER) {
-                return logError("expected import alias, got " + lexer.curToken.rawToken);
+                return lexer.expected("alias");
             }
             alias = lexer.curToken.rawToken;
             lexer.consume();
@@ -443,42 +494,44 @@ std::unique_ptr<ImportAST> parseImport(Lexer& lexer) {
         }
         aliases[imported] = alias;
     }
-    if (aliases.size() == 0) {
-        return logError("import statement with nothing imported found");
-    }
-    return std::make_unique<ImportAST>(unit, std::move(aliases));
+
+    auto ast = std::make_unique<ImportAST>(unit, std::move(aliases));
+    ast->setDebugInfo(lexer.popDebugInfo());
+    return ast;
 }
 
 std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
+    lexer.pushDebugInfo();
+
     bool native = false;
     if (lexer.curToken.rawToken == KW_NATIVE) {
         native = true;
         lexer.consume();
     }
     if (lexer.curToken.rawToken != KW_FUNC) {
-        return logError("Expected func");
+        return lexer.expected("func");
     }
     lexer.consume();
 
     if (!lexer.curToken.type == TOK_IDENTIFIER) {
-        return logError("Expected function name identifier");
+        return lexer.expected("function identifier");
     }
     auto funcName = lexer.curToken.rawToken;
     lexer.consume();
     if (lexer.curToken.rawToken != "(") {
-        return logError("Expected (");
+        return lexer.expected("(");
     }
     lexer.consume();
 
     std::vector<SigArg> signature;
     while (lexer.curToken.rawToken != ")") {
         if (!lexer.curToken.type == TOK_IDENTIFIER) {
-            return logError("Expected function argument identifier");
+            return lexer.expected("argument identifier");
         }
         auto identifier = lexer.curToken.rawToken;
         lexer.consume();
         if (lexer.curToken.rawToken != ":") {
-            return logError("Expected : after variable name");
+            return lexer.expected(":");
         }
         lexer.consume();
         auto type = parseType(lexer);
@@ -490,7 +543,7 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
         if (lexer.curToken.rawToken == ",") {
             lexer.consume();
         } else if (lexer.curToken.rawToken != ")") {
-            return logError("Expected )");
+            return lexer.expected(")");
         }
     }
     lexer.consume();
@@ -513,27 +566,32 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
             return nullptr;
         }
     }
-    return std::make_unique<FuncAST>(
+
+    auto ast = std::make_unique<FuncAST>(
         funcName,
         std::move(signature),
         returnType,
         std::move(block),
         native
     );
+    ast->setDebugInfo(lexer.popDebugInfo());
+    return ast;
 }
 
 std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {
+    lexer.pushDebugInfo();
+
     if (lexer.curToken.rawToken != KW_STRUCT) {
-        return logError("expected struct keyword, got " + lexer.curToken.rawToken);
+        return lexer.expected("struct");
     }
     lexer.consume();
     if (lexer.curToken.type != TOK_IDENTIFIER) {
-        return logError("expected struct identifier, got " + lexer.curToken.rawToken);
+        return lexer.expected("struct identifier");
     }
     auto structIdentifier = lexer.curToken.rawToken;
     lexer.consume();
     if (lexer.curToken.rawToken != "{") {
-        return logError("expected opening { for struct, got " + lexer.curToken.rawToken);
+        return lexer.expected("{");
     }
     lexer.consume();
 
@@ -546,12 +604,12 @@ std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {
         }
 
         if (lexer.curToken.type != TOK_IDENTIFIER) {
-            return logError("expected struct field identifier, got " + lexer.curToken.rawToken);
+            return lexer.expected("struct field identifier");
         }
         auto identifier = lexer.curToken.rawToken;
         lexer.consume();
         if (lexer.curToken.rawToken != ":") {
-            return logError("Expected : after variable name");
+            return lexer.expected(":");
         }
         lexer.consume();
         auto type = parseType(lexer);
@@ -563,7 +621,9 @@ std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {
     }
     lexer.consume();
 
-    return std::make_unique<StructAST>(structIdentifier, std::move(fields));
+    auto ast = std::make_unique<StructAST>(structIdentifier, std::move(fields));
+    ast->setDebugInfo(lexer.popDebugInfo());
+    return ast;
 }
 
 // var assignments are indistinguishable from expressions until the : or varop.
@@ -582,6 +642,7 @@ bool isVarAssignment(Lexer& lexer) {
 }
 
 std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
+    lexer.startDebugStatement();
     std::unique_ptr<StatementAST> statement;
 
     if (lexer.curToken.rawToken == KW_FUNC || lexer.curToken.rawToken == KW_NATIVE) {
@@ -601,15 +662,14 @@ std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
     if (!statement) {
         return nullptr;
     } else if (lexer.curToken.type != TOK_DELIMITER) {
-        return logError(
-            "Expected delimiter after statement `" + statement->toString() + "`, got " + lexer.curToken.rawToken
-        );
+        return lexer.expected("delimiter after statement");
     }
 
     return statement;
 }
 
 std::unique_ptr<TopLevelAST> parseTopLevel(Lexer& lexer) {
+    lexer.startDebugStatement();
     std::unique_ptr<TopLevelAST> statement;
 
     if (lexer.curToken.rawToken == KW_FUNC || lexer.curToken.rawToken == KW_NATIVE) {
@@ -619,21 +679,23 @@ std::unique_ptr<TopLevelAST> parseTopLevel(Lexer& lexer) {
     } else if (lexer.curToken.rawToken == KW_FROM) {
         statement = parseImport(lexer);
     } else {
-        return logError("Expected top level statement, got " + lexer.curToken.rawToken);
+        return lexer.expected("top level statement");
     }
 
     if (!statement) {
         return nullptr;
     } else if (lexer.curToken.type != TOK_DELIMITER) {
-        return logError("Expected delimiter after statement, got " + lexer.curToken.rawToken);
+        return lexer.expected("delimiter after statement");
     }
 
     return statement;
 }
 
 std::unique_ptr<BlockAST> parseBlock(Lexer& lexer) {
+    lexer.pushDebugInfo();
+
     if (lexer.curToken.rawToken != "{") {
-        return logError("Expected {");
+        return lexer.expected("{");
     }
     lexer.consume();
 
@@ -652,12 +714,15 @@ std::unique_ptr<BlockAST> parseBlock(Lexer& lexer) {
     }
     lexer.consume();
 
-    return std::make_unique<BlockAST>(std::move(statements));
+    auto ast = std::make_unique<BlockAST>(std::move(statements));
+    ast->setDebugInfo(lexer.popDebugInfo());
+    return ast;
 }
 
 std::unique_ptr<UnitAST> parseUnit(Lexer& lexer, const std::string& unit) {
-    std::vector<std::unique_ptr<TopLevelAST> > statements;
+    lexer.pushDebugInfo();
 
+    std::vector<std::unique_ptr<TopLevelAST> > statements;
     while (lexer.curToken.rawToken != std::string(1, EOF)) {
         // TODO: don't allow bare semicolons?
         if (lexer.curToken.type == TOK_DELIMITER) {
@@ -671,9 +736,7 @@ std::unique_ptr<UnitAST> parseUnit(Lexer& lexer, const std::string& unit) {
         }
     }
 
-    auto unitAst = std::make_unique<UnitAST>(unit, std::move(statements));
-    if constexpr (DEBUG_AST_PRINT_UNIT) {
-        std::cout << unitAst->toString() << std::endl;
-    }
-    return unitAst;
+    auto ast = std::make_unique<UnitAST>(unit, std::move(statements));
+    ast->setDebugInfo(lexer.popDebugInfo());
+    return ast;
 }

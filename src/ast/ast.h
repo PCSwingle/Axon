@@ -20,6 +20,13 @@ class ModuleState;
 
 class BlockAST;
 
+struct DebugInfo {
+    int statementStartToken;
+
+    int startToken;
+    int endToken;
+};
+
 // abstracts
 class AST {
 public:
@@ -28,9 +35,15 @@ public:
     virtual std::string toString() = 0;
 
     virtual bool codegen(ModuleState& state) = 0;
+
+    DebugInfo debugInfo;
+
+    void setDebugInfo(const DebugInfo& debugInfo) {
+        this->debugInfo = debugInfo;
+    }
 };
 
-class TopLevelAST : public AST {
+class TopLevelAST : virtual public AST {
 public:
     // Registers this statement on an the global, importable level
     virtual bool preregister(ModuleState& state, const std::string& unit) = 0;
@@ -39,10 +52,10 @@ public:
     virtual bool postregister(ModuleState& state, const std::string& unit) = 0;
 };
 
-class StatementAST : public AST {
+class StatementAST : virtual public AST {
 };
 
-class ExprAST : public StatementAST {
+class ExprAST : virtual public StatementAST {
 public:
     bool codegen(ModuleState& state) override;
 
@@ -51,7 +64,7 @@ public:
     virtual std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state, GeneratedType* impliedType) = 0;
 };
 
-class AssignableAST : public ExprAST {
+class AssignableAST : virtual public ExprAST {
 public:
     virtual std::unique_ptr<GeneratedValue> codegenPointer(ModuleState& state) = 0;
 };

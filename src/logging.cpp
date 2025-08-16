@@ -3,7 +3,7 @@
 #include "logging.h"
 
 std::nullptr_t logError(const std::string& error) {
-    std::cerr << "Parsing error: " << error << std::endl;
+    std::cerr << error << std::endl;
     return nullptr;
 }
 

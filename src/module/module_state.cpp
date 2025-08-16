@@ -81,7 +81,6 @@ bool ModuleState::useGlobalIdentifier(const std::string& unit,
     return registerIdentifier(alias, std::make_unique<Identifier>(*globalIdentifiers.at(globalIdentifier)));
 }
 
-
 bool ModuleState::compileModule() {
     registerUnit(config.main);
     while (unitStack.size() > 0) {
@@ -91,7 +90,7 @@ bool ModuleState::compileModule() {
 
         auto curFile = unitToPath(curUnit);
         if (!is_regular_file(curFile)) {
-            logError("file " + curFile.string() + " does not exist");
+            logError("Error: file " + curFile.string() + " does not exist");
             return false;
         }
 
@@ -99,6 +98,7 @@ bool ModuleState::compileModule() {
         Lexer lexer(text);
         auto unitAst = parseUnit(lexer, curUnit);
         if (!unitAst) {
+            logError(lexer.formatParsingError(curUnit, curFile.string()));
             return false;
         }
         unitAst->preregisterUnit(*this);

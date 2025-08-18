@@ -105,11 +105,11 @@ Type* GeneratedType::getLLVMType(const ModuleState& state) {
 std::unique_ptr<GeneratedValue> GeneratedValue::getFieldPointer(ModuleState& state, const std::string& fieldName) {
     auto genStruct = type->getGenStruct(state);
     if (!genStruct) {
-        return logError("type " + type->toString() + " is not a struct or does not exist");
+        return nullptr;
     }
     auto fieldIndex = genStruct->getFieldIndex(fieldName);
     if (!fieldIndex.has_value()) {
-        return logError("struct " + genStruct->type->toString() + " has no field " + fieldName);
+        return nullptr;
     }
     auto fieldType = std::get<1>(genStruct->fields[fieldIndex.value()]);
     auto fieldIndices = createFieldIndices(state, fieldIndex.value());
@@ -125,7 +125,7 @@ std::unique_ptr<GeneratedValue> GeneratedValue::getArrayPointer(ModuleState& sta
                                                                 const std::unique_ptr<GeneratedValue>& index) {
     auto baseType = type->getArrayBase();
     if (!baseType) {
-        return logError("type " + type->toString() + " is not an array");
+        return nullptr;
     }
     assert(type->getLLVMType(state) == state.arrFatPtrTy);
 

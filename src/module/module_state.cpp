@@ -51,11 +51,27 @@ std::string ModuleState::mergeGlobalIdentifier(const std::string& unit, const st
     return unit + "." + identifier;
 }
 
-void ModuleState::registerUnit(const std::string& unit) {
+std::nullptr_t ModuleState::setError(const DebugInfo& debugInfo, const std::string& error) {
+    buildErrorDebugInfo = std::make_unique<DebugInfo>(debugInfo);
+    buildError = error;
+    return nullptr;
+}
+
+void ModuleState::unsetError() {
+    buildErrorDebugInfo.reset();
+    buildError = "";
+}
+
+bool ModuleState::registerUnit(const std::string& unit) {
     if (!units.contains(unit)) {
+        if (!is_regular_file(unitToPath(unit))) {
+            return false;
+        }
+
         units[unit] = nullptr;
         unitStack.push_back(unit);
     }
+    return true;
 }
 
 bool ModuleState::registerGlobalIdentifier(const std::string& unit,
@@ -63,7 +79,6 @@ bool ModuleState::registerGlobalIdentifier(const std::string& unit,
                                            std::unique_ptr<Identifier> val) {
     auto globalIdentifier = mergeGlobalIdentifier(unit, identifier);
     if (globalIdentifiers.contains(globalIdentifier)) {
-        logError("duplicate global identifier definition " + globalIdentifier);
         return false;
     }
     globalIdentifiers.insert_or_assign(globalIdentifier, std::move(val));
@@ -75,37 +90,47 @@ bool ModuleState::useGlobalIdentifier(const std::string& unit,
                                       const std::string& alias) {
     auto globalIdentifier = mergeGlobalIdentifier(unit, identifier);
     if (!globalIdentifiers.contains(globalIdentifier)) {
-        logError("unknown global identifier " + globalIdentifier);
         return false;
     }
     return registerIdentifier(alias, std::make_unique<Identifier>(*globalIdentifiers.at(globalIdentifier)));
 }
 
 bool ModuleState::compileModule() {
-    registerUnit(config.main);
+    std::unordered_map<std::string, Lexer> lexers;
+
+    if (!registerUnit(config.main)) {
+        logError("Error reading main unit specified in build config");
+        return false;
+    }
     while (unitStack.size() > 0) {
         auto curUnit = unitStack.back();
         unitStack.pop_back();
         assert(units.contains(curUnit) && units[curUnit] == nullptr && "tried to process unit twice");
 
         auto curFile = unitToPath(curUnit);
-        if (!is_regular_file(curFile)) {
-            logError("Error: file " + curFile.string() + " does not exist");
+        assert(is_regular_file(curFile));
+        std::string text = readFile(curFile);
+        lexers.emplace(curUnit, Lexer(text));
+        auto unitAst = parseUnit(lexers.at(curUnit), curUnit);
+        if (!unitAst) {
+            logError(lexers.at(curUnit).formatParsingError(curUnit, curFile.string()));
             return false;
         }
 
-        std::string text = readFile(curFile);
-        Lexer lexer(text);
-        auto unitAst = parseUnit(lexer, curUnit);
-        if (!unitAst) {
-            logError(lexer.formatParsingError(curUnit, curFile.string()));
+        if (!unitAst->preregisterUnit(*this)) {
+            assert(buildErrorDebugInfo);
+            logError(lexers.at(curUnit).formatError(*buildErrorDebugInfo, curUnit, curFile.string(), buildError));
             return false;
         }
-        unitAst->preregisterUnit(*this);
         units[curUnit] = std::move(unitAst);
     }
-    for (const auto& unitAst: units | std::views::values) {
+    for (const auto& [curUnit, unitAst]: units) {
         if (!unitAst->codegen(*this)) {
+            assert(buildErrorDebugInfo);
+            logError(lexers.at(curUnit).formatError(*buildErrorDebugInfo,
+                                                    curUnit,
+                                                    unitToPath(curUnit).string(),
+                                                    buildError));
             return false;
         }
     }
@@ -183,7 +208,6 @@ void ModuleState::exitScope() {
 
 bool ModuleState::registerIdentifier(const std::string& identifier, std::unique_ptr<Identifier> val) {
     if (identifiers.contains(identifier)) {
-        logError("duplicate identifier definition " + identifier);
         return false;
     }
     identifiers.insert_or_assign(identifier, std::move(val));

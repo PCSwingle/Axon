@@ -207,7 +207,7 @@ public:
 
     Token curToken;
 
-    explicit Lexer(std::string text): text(std::move(text)) {
+    explicit Lexer(const std::string& text): text(text) {
         debugStatementStart = 0;
         debugTokenStack = std::vector<int>{};
 

@@ -239,7 +239,7 @@ std::string Lexer::formatError(const DebugInfo& debugInfo,
             highlighted += prefix;
             if (startColumn != -1) {
                 if (endColumn == -1) {
-                    endColumn = curColumn;
+                    endColumn = curColumn - 1;
                 }
                 highlighted += std::string(startColumn, ' ');
                 highlighted += std::string(endColumn - startColumn, '^');

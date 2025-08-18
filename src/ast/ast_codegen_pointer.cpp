@@ -7,7 +7,7 @@
 std::unique_ptr<GeneratedValue> VariableExprAST::codegenPointer(ModuleState& state) {
     auto* genVar = state.getVar(varName);
     if (!genVar) {
-        return logError("undefined variable " + varName);
+        return state.setError(this->debugInfo, "Undefined variable " + varName);
     }
     return std::make_unique<GeneratedValue>(genVar->type, genVar->value);
 }
@@ -19,7 +19,8 @@ std::unique_ptr<GeneratedValue> MemberAccessExprAST::codegenPointer(ModuleState&
     }
     auto fieldPointer = structVal->getFieldPointer(state, fieldName);
     if (!fieldPointer) {
-        return nullptr;
+        return state.setError(this->debugInfo,
+                              "Could not find field " + fieldName + " on type " + structVal->type->toString());
     }
     return fieldPointer;
 }
@@ -34,11 +35,12 @@ std::unique_ptr<GeneratedValue> SubscriptExprAST::codegenPointer(ModuleState& st
         return nullptr;
     }
     if (indexVal->type != GeneratedType::get(KW_USIZE)) {
-        return logError("arrays must be indexed with usize type, got " + indexVal->type->toString());
+        return state.setError(this->debugInfo,
+                              "Arrays must be indexed with usize type, got " + indexVal->type->toString());
     }
     auto indexPointer = arrayVal->getArrayPointer(state, indexVal);
     if (!indexPointer) {
-        return nullptr;
+        return state.setError(this->debugInfo, "Cannot subscript type " + arrayVal->type->toString());
     }
     return indexPointer;
 }

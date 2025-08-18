@@ -25,7 +25,7 @@ bool ExprAST::codegen(ModuleState& state) {
 std::unique_ptr<GeneratedValue> ValueExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
     if (rawValue.front() == '\"' || rawValue.front() == '\'') {
         auto strVal = rawValue.substr(1, rawValue.length() - 2);
-        return logError("string literals not implemented yet");
+        return state.setError(this->debugInfo, "string literals not implemented yet");
     } else if (rawValue == KW_TRUE) {
         return std::make_unique<GeneratedValue>(GeneratedType::get(KW_BOOL), ConstantInt::getTrue(*state.ctx));
     } else if (rawValue == KW_FALSE) {
@@ -173,9 +173,10 @@ std::unique_ptr<GeneratedValue> BinaryOpExprAST::codegenValue(ModuleState& state
     }
 
     if (L->type != R->type) {
-        return logError(
-            "binary expression between two values not the same type; got " + L->type->toString() + " and " + R->type->
-            toString() + ". Expression: " + this->toString());
+        return state.setError(this->debugInfo,
+                              "Binary expression between two values not the same type; got " + L->type->toString() +
+                              " and " + R->type->
+                              toString() + ". Expression: " + this->toString());
     }
     bool isSigned = L->type->isSigned();
     bool isFloating = L->type->isFloating();
@@ -192,7 +193,7 @@ std::unique_ptr<GeneratedValue> BinaryOpExprAST::codegenValue(ModuleState& state
         type = GeneratedType::get(KW_BOOL);
         val = state.builder->CreateCmp(cmpOp.value(), L->value, R->value, binOp + "_cmpop");
     } else {
-        return logError("binop " + binOp + " not implemented yet");
+        return state.setError(this->debugInfo, "binop " + binOp + " not implemented yet");
     }
     return std::make_unique<GeneratedValue>(type, val);
 }
@@ -208,7 +209,7 @@ std::unique_ptr<GeneratedValue> UnaryOpExprAST::codegenValue(ModuleState& state,
     if (unaryOp == "-") {
         val = state.builder->CreateNeg(genVal->value, unaryOp + "_unop");
     } else {
-        return logError("unop " + unaryOp + " not implemented yet");
+        return state.setError(this->debugInfo, "unop " + unaryOp + " not implemented yet");
     }
     return std::make_unique<GeneratedValue>(genVal->type, val);
 }
@@ -217,13 +218,14 @@ std::unique_ptr<GeneratedValue> UnaryOpExprAST::codegenValue(ModuleState& state,
 std::unique_ptr<GeneratedValue> CallExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
     auto* genFunction = state.getFunction(callName);
     if (!genFunction) {
-        return logError("function " + callName + " not defined");
+        return state.setError(this->debugInfo, "Function " + callName + " not defined");
     }
     auto* callee = genFunction->function;
     if (callee->arg_size() != args.size()) {
-        return logError(
-            "expected " + std::to_string(callee->arg_size()) + " arguments, got " + std::to_string(args.size()) +
-            "arguments");
+        return state.setError(this->debugInfo,
+                              "Expected " + std::to_string(callee->arg_size()) + " arguments, got " + std::to_string(
+                                  args.size()) +
+                              "arguments");
     }
 
     std::vector<Value*> argsV;
@@ -233,9 +235,10 @@ std::unique_ptr<GeneratedValue> CallExprAST::codegenValue(ModuleState& state, Ge
             return nullptr;
         }
         if (genFunction->signature[i].type != arg->type) {
-            return logError(
-                "expected type " + genFunction->signature[i].type->toString() + ", got type " + arg->type->
-                toString() + ". Call: " + toString());
+            return state.setError(this->debugInfo,
+                                  "Expected type " + genFunction->signature[i].type->toString() + ", got type " + arg->
+                                  type->
+                                  toString() + ". Call: " + toString());
         }
         argsV.push_back(arg->value);
     }
@@ -270,7 +273,8 @@ std::unique_ptr<GeneratedValue> SubscriptExprAST::codegenValue(ModuleState& stat
 std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
     auto* genStruct = type->getGenStruct(state);
     if (!genStruct) {
-        return logError("attempted to call constructor for undefined or non-struct type " + type->toString());
+        return state.setError(this->debugInfo,
+                              "Attempted to call constructor for undefined or non-struct type " + type->toString());
     }
 
     auto* structPointer = createMalloc(state,
@@ -284,7 +288,8 @@ std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& st
         used.insert(fieldName);
         auto fieldIndex = genStruct->getFieldIndex(fieldName);
         if (!fieldIndex.has_value()) {
-            return logError("struct " + genStruct->type->toString() + " has no field " + fieldName);
+            return state.setError(this->debugInfo,
+                                  "struct " + genStruct->type->toString() + " has no field " + fieldName);
         }
 
         auto fieldValue = fieldExpr->codegenValue(state, std::get<1>(genStruct->fields[fieldIndex.value()]));
@@ -293,18 +298,21 @@ std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& st
         }
         auto fieldPointer = structVal->getFieldPointer(state, fieldName);
         if (!fieldPointer) {
-            return nullptr;
+            return state.setError(this->debugInfo,
+                                  "Could not find field " + fieldName + " on type " + type->toString());
         }
         if (fieldPointer->type != fieldValue->type) {
-            return logError(
-                "invalid type for field " + fieldName + "; expected " + fieldPointer->type->toString() + ", got " +
-                fieldValue->type->toString());
+            return state.setError(this->debugInfo,
+                                  "Invalid type for field " + fieldName + "; expected " + fieldPointer->type->toString()
+                                  + ", got " +
+                                  fieldValue->type->toString());
         }
         state.builder->CreateStore(fieldValue->value, fieldPointer->value);
     }
     for (const auto& [fieldName, _]: genStruct->fields) {
         if (!used.contains(fieldName)) {
-            return logError("Field " + fieldName + " required for " + type->toString() + " constructor");
+            return state.setError(this->debugInfo,
+                                  "Field " + fieldName + " required for " + type->toString() + " constructor");
         }
     }
     return structVal;
@@ -319,15 +327,16 @@ std::unique_ptr<GeneratedValue> ArrayExprAST::codegenValue(ModuleState& state, G
             return nullptr;
         }
         if (baseType && genValue->type != baseType) {
-            return logError(
-                "mismatched types in array: got both " + genValue->type->toString() + " and " + genValues[0]->type->
-                toString());
+            return state.setError(this->debugInfo,
+                                  "Mismatched types in array: got both " + genValue->type->toString() + " and " +
+                                  genValues[0]->type->
+                                  toString());
         }
         baseType = genValue->type;
         genValues.push_back(std::move(genValue));
     }
     if (!baseType) {
-        return logError("unable to infer type of array " + toString());
+        return state.setError(this->debugInfo, "Unable to infer type of array");
     }
 
     auto* typeSize = state.builder->
@@ -354,6 +363,7 @@ std::unique_ptr<GeneratedValue> ArrayExprAST::codegenValue(ModuleState& state, G
                                                                ConstantInt::get(*state.ctx, APInt(64, i)),
                                                                state.sizeTy));
         auto indexPointer = arrayValue->getArrayPointer(state, indexValue);
+        assert(indexPointer);
         state.builder->CreateStore(genValue->value, indexPointer->value);
     }
     return arrayValue;
@@ -362,7 +372,7 @@ std::unique_ptr<GeneratedValue> ArrayExprAST::codegenValue(ModuleState& state, G
 // top level statements
 bool ImportAST::codegen(ModuleState& state) {
     if (aliases.size() == 0) {
-        logError("import statement with nothing imported found");
+        state.setError(this->debugInfo, "Import statement with nothing imported found");
         return false;
     }
     return true;
@@ -375,7 +385,7 @@ bool StructAST::codegen(ModuleState& state) {
 bool FuncAST::codegen(ModuleState& state) {
     auto* genFunction = state.getFunction(funcName);
     if (!genFunction) {
-        logError("function " + funcName + " not registered (somehow)");
+        state.setError(this->debugInfo, "Function not registered (somehow)");
         return false;
     }
 
@@ -390,18 +400,22 @@ bool FuncAST::codegen(ModuleState& state) {
 
     // Function block
     if (!block.has_value()) {
-        logError("no block given for non native function");
+        state.setError(this->debugInfo, "No block given for non native function");
         return false;
     }
     // TODO: store current insert point
     BasicBlock* BB = BasicBlock::Create(*state.ctx, "entry", function);
     state.builder->SetInsertPoint(BB);
 
-    state.enterFunc(genFunction);
+    if (!state.enterFunc(genFunction)) {
+        // TODO: output which identifier is clashing
+        state.setError(this->debugInfo, "Duplicate identifier in signature of function " + funcName);
+        return false;
+    }
     for (int i = 0; i < signature.size(); i++) {
         auto* genVar = state.getVar(signature[i].identifier);
         if (!genVar->type->isDefined(state)) {
-            logError("unknown type " + genVar->type->toString());
+            state.setError(this->debugInfo, "Unknown type " + genVar->type->toString());
             return false;
         }
         auto* arg = function->getArg(i);
@@ -415,7 +429,7 @@ bool FuncAST::codegen(ModuleState& state) {
     std::string result;
     raw_string_ostream stream(result);
     if (verifyFunction(*function, &stream)) {
-        logError("Error verifying function " + funcName + ": " + result);
+        state.setError(this->debugInfo, "Error verifying function (this should not happen!): " + result);
         return false;
     }
     return true;
@@ -424,11 +438,11 @@ bool FuncAST::codegen(ModuleState& state) {
 // statements
 bool VarAST::codegen(ModuleState& state) {
     if (type.has_value() && !definition) {
-        logError("Can only set variable type on definition");
+        state.setError(this->debugInfo, "Can only set variable type on definition");
         return false;
     }
     if (definition && varOp != "=") {
-        logError("Cannot use binary variable assignment operator on variable definition");
+        state.setError(this->debugInfo, "Cannot use binary variable assignment operator on variable definition");
     }
 
     std::unique_ptr<GeneratedValue> varPointer;
@@ -437,40 +451,49 @@ bool VarAST::codegen(ModuleState& state) {
     // fml ;)
     if (definition) {
         value = expr->codegenValue(state, type.value_or(nullptr));
+        if (!value) {
+            return false;
+        }
 
         auto raw = dynamic_cast<VariableExprAST*>(variableExpr.get());
         if (!raw) {
-            logError("can only define raw variables");
+            state.setError(this->debugInfo, "Can only define raw variables");
             return false;
         }
         GeneratedType* varType = type.value_or(value->type);
         if (!varType->isDefined(state)) {
-            logError("unknown type " + varType->toString());
+            state.setError(this->debugInfo, "Unknown type " + varType->toString());
             return false;
         }
 
         if (!state.registerVar(raw->varName, varType)) {
+            state.setError(this->debugInfo, "Duplicate identifier " + raw->varName);
             return false;
         }
 
         varPointer = variableExpr->codegenPointer(state);
+        if (!varPointer) {
+            return false;
+        }
     } else {
         varPointer = variableExpr->codegenPointer(state);
+        if (!varPointer) {
+            return false;
+        }
         if (varOp != "=") {
             auto binOp = varOp.substr(0, varOp.size() - 1);
             expr = std::make_unique<BinaryOpExprAST>(std::move(variableExpr), std::move(expr), binOp);
         }
         value = expr->codegenValue(state, varPointer->type);
-    }
-
-    if (!varPointer || !value) {
-        return false;
+        if (!value) {
+            return false;
+        }
     }
 
     if (varPointer->type != value->type) {
-        logError(
-            "wrong type assigned to variable: expected " + varPointer->type->toString() + ", got " +
-            value->type->toString());
+        state.setError(this->debugInfo,
+                       "Wrong type assigned to variable: expected " + varPointer->type->toString() + ", got " +
+                       value->type->toString());
         return false;
     }
     state.builder->CreateStore(value->value, varPointer->value);
@@ -483,7 +506,7 @@ bool IfAST::codegen(ModuleState& state) {
         return false;
     }
     if (val->type->isBool()) {
-        logError("must use bool type in if statement");
+        state.setError(this->debugInfo, "Must use bool type in if statement");
         return false;
     }
 
@@ -535,7 +558,7 @@ bool WhileAST::codegen(ModuleState& state) {
         return false;
     }
     if (!val->type->isBool()) {
-        logError("must use bool value in while statement");
+        state.setError(this->debugInfo, "Must use bool value in while statement");
         return false;
     }
     state.builder->CreateCondBr(val->value, loopBB, postBB);
@@ -556,7 +579,7 @@ bool ReturnAST::codegen(ModuleState& state) {
     auto* returnType = state.expectedReturnType();
     if (returnExpr.has_value()) {
         if (returnType->isVoid()) {
-            logError("cannot return a value from a void function");
+            state.setError(this->debugInfo, "Cannot return a value from a void function");
         }
 
         auto returnValue = returnExpr->get()->codegenValue(state, returnType);
@@ -564,13 +587,15 @@ bool ReturnAST::codegen(ModuleState& state) {
             return false;
         }
         if (returnValue->type != returnType) {
-            logError("expected return type of " + returnType->toString() + ", got " + returnValue->type->toString());
+            state.setError(this->debugInfo,
+                           "Expected return type of " + returnType->toString() + ", got " + returnValue->type->
+                           toString());
             return false;
         }
         state.builder->CreateRet(returnValue->value);
     } else {
         if (!returnType->isVoid()) {
-            logError("expected return type of " + returnType->toString() + ", got void");
+            state.setError(this->debugInfo, "Expected return type of " + returnType->toString() + ", got void");
             return false;
         }
         state.builder->CreateRetVoid();

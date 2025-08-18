@@ -7,6 +7,8 @@
 
 #include "typedefs.h"
 
+struct DebugInfo;
+
 namespace llvm {
     class AllocaInst;
 }
@@ -54,8 +56,15 @@ private:
 
     static std::string mergeGlobalIdentifier(const std::string& unit, const std::string& identifier);
 
+    std::unique_ptr<DebugInfo> buildErrorDebugInfo;
+    std::string buildError;
+
 public:
-    void registerUnit(const std::string& unit);
+    std::nullptr_t setError(const DebugInfo& debugInfo, const std::string& error);
+
+    void unsetError();
+
+    bool registerUnit(const std::string& unit);
 
     bool registerGlobalIdentifier(const std::string& unit,
                                   const std::string& identifier,

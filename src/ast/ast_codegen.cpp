@@ -6,7 +6,6 @@
 
 #include "ast.h"
 #include "llvm_utils.h"
-#include "logging.h"
 #include "module/module_state.h"
 #include "module/generated.h"
 #include "lexer/lexer.h"
@@ -161,16 +160,30 @@ static std::optional<CmpInst::Predicate> getCmpop(const std::string& cmpop,
 }
 
 std::unique_ptr<GeneratedValue> BinaryOpExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
-    // TODO: Missing out on an implicit cast here that would allow us to do `let x = 2 + <var_with_type>`.
-    // Once semantic analysis and codegen are split up this will be possible.
     if (icmpMap.contains(binOp)) {
         impliedType = nullptr;
     }
-    auto L = LHS->codegenValue(state, impliedType);
-    auto R = RHS->codegenValue(state, impliedType);
+
+    std::unique_ptr<GeneratedValue> L = LHS->codegenValue(state, impliedType);
+    std::unique_ptr<GeneratedValue> R = RHS->codegenValue(state, impliedType);
+    if (!impliedType && (!L || !R || L->type != R->type)) {
+        if (R) {
+            auto tryL = LHS->codegenValue(state, R->type);
+            if (tryL && tryL->type == R->type) {
+                L = std::move(tryL);
+            }
+        }
+        if (L && (!R || L->type != R->type)) {
+            auto tryR = RHS->codegenValue(state, L->type);
+            if (tryR && tryR->type == L->type) {
+                R = std::move(tryR);
+            }
+        }
+    }
     if (!L || !R) {
         return nullptr;
     }
+    state.unsetError();
 
     if (L->type != R->type) {
         return state.setError(this->debugInfo,

@@ -189,7 +189,7 @@ std::unique_ptr<GeneratedValue> BinaryOpExprAST::codegenValue(ModuleState& state
         return state.setError(this->debugInfo,
                               "Binary expression between two values not the same type; got " + L->type->toString() +
                               " and " + R->type->
-                              toString() + ". Expression: " + this->toString());
+                              toString());
     }
     bool isSigned = L->type->isSigned();
     bool isFloating = L->type->isFloating();

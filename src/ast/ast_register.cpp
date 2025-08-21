@@ -53,8 +53,15 @@ bool FuncAST::postregister(ModuleState& state, const std::string& unit) {
 }
 
 bool StructAST::preregister(ModuleState& state, const std::string& unit) {
-    // TODO: verify struct body
-    if (!state.registerGlobalStruct(unit, structName, fields)) {
+    std::unordered_map<std::string, GeneratedFunction*> generatedMethods;
+    for (const auto& [methodName, method]: methods) {
+        if (!method->preregister(state, unit)) {
+            return false;
+        }
+        generatedMethods[methodName] = state.getFunction(method->funcName);
+    }
+
+    if (!state.registerGlobalStruct(unit, structName, fields, generatedMethods)) {
         state.setError(this->debugInfo, "Duplicate identifier " + structName);
         return false;
     }
@@ -62,6 +69,12 @@ bool StructAST::preregister(ModuleState& state, const std::string& unit) {
 }
 
 bool StructAST::postregister(ModuleState& state, const std::string& unit) {
+    for (const auto& method: methods | std::views::values) {
+        if (!method->postregister(state, unit)) {
+            return false;
+        }
+    }
+
     if (!state.useGlobalIdentifier(unit, structName, structName)) {
         state.setError(this->debugInfo, "Duplicate identifier " + structName);
         return false;

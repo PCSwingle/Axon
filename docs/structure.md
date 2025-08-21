@@ -18,7 +18,7 @@ actually use (if this is even possible or good?).
 
 #### Importing
 
-To export a function or struct from a file, simply make it `public`. Exported objects will be under the namespace
+To export a function or struct from a file, simply add `export`. Exported objects will be under the namespace
 `module.dir.file.object` starting from the dir of `axon.toml`. This can be imported with the following statement:
 `from module.dir.file import object, object2 as obj2`. For example, in a project with the following structure:
 
@@ -34,7 +34,7 @@ name = "myModule"
 main = "myModule.main"
 
 ### dir/test.ax ###
-public func add(a: int, b: int): int {
+export func add(a: int, b: int): int {
     return a + b
 }
 

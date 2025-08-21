@@ -232,13 +232,14 @@ struct SigArg {
 };
 
 class FuncAST : public TopLevelAST, public StatementAST {
-    std::string funcName;
     std::vector<SigArg> signature;
     GeneratedType* returnType;
     std::optional<std::unique_ptr<BlockAST> > block;
-    bool native;
 
 public:
+    std::string funcName;
+    bool native;
+
     explicit FuncAST(
         std::string funcName,
         std::vector<SigArg>
@@ -264,12 +265,13 @@ public:
 class StructAST : public TopLevelAST {
     std::string structName;
     std::vector<std::tuple<std::string, GeneratedType*> > fields;
+    std::unordered_map<std::string, std::unique_ptr<FuncAST> > methods;
 
 public:
     explicit StructAST(std::string structName,
-                       std::vector<std::tuple<std::string, GeneratedType*> > fields): structName(
-            std::move(structName)),
-        fields(std::move(fields)) {
+                       std::vector<std::tuple<std::string, GeneratedType*> > fields,
+                       std::unordered_map<std::string, std::unique_ptr<FuncAST> > methods
+    ): structName(std::move(structName)), fields(std::move(fields)), methods(std::move(methods)) {
     }
 
     std::string toString() override;
@@ -404,7 +406,8 @@ std::unique_ptr<ArrayExprAST> parseArray(Lexer& lexer);
 
 std::unique_ptr<ImportAST> parseImport(Lexer& lexer);
 
-std::unique_ptr<FuncAST> parseFunc(Lexer& lexer);
+std::unique_ptr<FuncAST> parseFunc(Lexer& lexer,
+                                   const std::optional<std::string>& identifierPrefix = std::optional<std::string>());
 
 std::unique_ptr<StructAST> parseStruct(Lexer& lexer);
 

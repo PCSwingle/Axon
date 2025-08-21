@@ -392,13 +392,22 @@ bool ImportAST::codegen(ModuleState& state) {
 }
 
 bool StructAST::codegen(ModuleState& state) {
+    for (const auto& method: methods | std::views::values) {
+        if (method->native) {
+            state.setError(this->debugInfo, "Structs cannot have native methods");
+            return false;
+        }
+        if (!method->codegen(state)) {
+            return false;
+        }
+    }
     return true;
 }
 
 bool FuncAST::codegen(ModuleState& state) {
     auto* genFunction = state.getFunction(funcName);
     if (!genFunction) {
-        state.setError(this->debugInfo, "Function not registered (somehow)");
+        state.setError(this->debugInfo, "Function not registered (this should not happen!)");
         return false;
     }
 

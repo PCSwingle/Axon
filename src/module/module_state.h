@@ -112,7 +112,9 @@ public:
 
     bool registerGlobalStruct(const std::string& unit,
                               const std::string& identifier,
-                              std::vector<std::tuple<std::string, GeneratedType*> >& fields);
+                              const std::vector<std::tuple<std::string, GeneratedType*> >& fields,
+                              const std::unordered_map<std::string, GeneratedFunction*>& methods
+    );
 
     GeneratedStruct* getStruct(const std::string& identifier);
 };

@@ -96,12 +96,14 @@ struct GeneratedFunction {
 struct GeneratedStruct {
     GeneratedType* type;
     std::vector<std::tuple<std::string, GeneratedType*> > fields;
+    std::unordered_map<std::string, GeneratedFunction*> methods;
     StructType* structType;
 
     explicit GeneratedStruct(GeneratedType* type,
                              std::vector<std::tuple<std::string, GeneratedType*> > fields,
+                             std::unordered_map<std::string, GeneratedFunction*> methods,
                              StructType* structType
-    ): type(type), fields(move(fields)), structType(structType) {
+    ): type(type), fields(std::move(fields)), methods(std::move(methods)), structType(structType) {
     }
 
     std::optional<int> getFieldIndex(const std::string& fieldName);

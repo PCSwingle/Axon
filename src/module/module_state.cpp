@@ -271,7 +271,8 @@ GeneratedFunction* ModuleState::getFunction(const std::string& identifier) {
 
 bool ModuleState::registerGlobalStruct(const std::string& unit,
                                        const std::string& identifier,
-                                       std::vector<std::tuple<std::string, GeneratedType*> >& fields) {
+                                       const std::vector<std::tuple<std::string, GeneratedType*> >& fields,
+                                       const std::unordered_map<std::string, GeneratedFunction*>& methods) {
     auto elements = std::vector<Type*>();
     for (auto& [fieldName, fieldType]: fields) {
         elements.push_back(fieldType->getLLVMType(*this));
@@ -284,6 +285,7 @@ bool ModuleState::registerGlobalStruct(const std::string& unit,
                                         GeneratedStruct(
                                             GeneratedType::get(identifier),
                                             fields,
+                                            methods,
                                             structType)));
 }
 

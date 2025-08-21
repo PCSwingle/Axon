@@ -21,3 +21,11 @@ string interns! the perfect solution:
       sense!)
 
 loicense!
+
+figure out generics (gist I'm thinking right now is you can't act on object T; i.e. generics are _solely_ for container
+types. how does stuff like size fit in?)
+
+For iterators: things like map are slow, but nice to have. If you implement Iterator you must override [] operator and
+length, and all Iterator functions like map, flatmap, foreach, whatever are all automatic (using for loop and []
+operator and length). Maybe things like map will be able to take just blocks and run that block in the loop instead of
+calling a function each time.

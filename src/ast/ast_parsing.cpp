@@ -500,7 +500,7 @@ std::unique_ptr<ImportAST> parseImport(Lexer& lexer) {
     return ast;
 }
 
-std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
+std::unique_ptr<FuncAST> parseFunc(Lexer& lexer, const std::optional<std::string>& identifierPrefix) {
     lexer.pushDebugInfo();
 
     bool native = false;
@@ -518,6 +518,10 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
     }
     auto funcName = lexer.curToken.rawToken;
     lexer.consume();
+    if (identifierPrefix.has_value()) {
+        funcName = identifierPrefix.value() + funcName;
+    }
+
     if (lexer.curToken.rawToken != "(") {
         return lexer.expected("(");
     }
@@ -525,7 +529,7 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
 
     std::vector<SigArg> signature;
     while (lexer.curToken.rawToken != ")") {
-        if (!lexer.curToken.type == TOK_IDENTIFIER) {
+        if (lexer.curToken.type != TOK_IDENTIFIER) {
             return lexer.expected("argument identifier");
         }
         auto identifier = lexer.curToken.rawToken;
@@ -595,7 +599,9 @@ std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {
     }
     lexer.consume();
 
+    std::unordered_set<std::string> used;
     std::vector<std::tuple<std::string, GeneratedType*> > fields;
+    std::unordered_map<std::string, std::unique_ptr<FuncAST> > methods;
     while (lexer.curToken.rawToken != "}") {
         // TODO: don't allow bare semicolons?
         if (lexer.curToken.type == TOK_DELIMITER) {
@@ -603,25 +609,39 @@ std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {
             continue;
         }
 
-        if (lexer.curToken.type != TOK_IDENTIFIER) {
+        if (lexer.curToken.rawToken == KW_FUNC) {
+            auto function = parseFunc(lexer, structIdentifier + ".");
+            if (!function) {
+                return nullptr;
+            }
+            // TODO: somehow put these errors not here
+            if (used.contains(function->funcName)) {
+                return lexer.expected("unique struct field");
+            }
+            methods[function->funcName] = std::move(function);
+        } else if (lexer.curToken.type == TOK_IDENTIFIER) {
+            auto identifier = lexer.curToken.rawToken;
+            if (used.contains(identifier)) {
+                return lexer.expected("unique struct field");
+            }
+
+            lexer.consume();
+            if (lexer.curToken.rawToken != ":") {
+                return lexer.expected(":");
+            }
+            lexer.consume();
+            auto type = parseType(lexer);
+            if (!type) {
+                return nullptr;
+            }
+            fields.push_back(std::make_tuple(identifier, type));
+        } else {
             return lexer.expected("struct field identifier");
         }
-        auto identifier = lexer.curToken.rawToken;
-        lexer.consume();
-        if (lexer.curToken.rawToken != ":") {
-            return lexer.expected(":");
-        }
-        lexer.consume();
-        auto type = parseType(lexer);
-        if (!type) {
-            return nullptr;
-        }
-
-        fields.push_back(std::make_tuple(identifier, type));
     }
     lexer.consume();
 
-    auto ast = std::make_unique<StructAST>(structIdentifier, std::move(fields));
+    auto ast = std::make_unique<StructAST>(structIdentifier, std::move(fields), std::move(methods));
     ast->setDebugInfo(lexer.popDebugInfo());
     return ast;
 }

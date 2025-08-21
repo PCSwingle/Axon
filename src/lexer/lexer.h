@@ -135,6 +135,7 @@ inline const std::unordered_set<std::string> VALUES{
 #undef VALUE
 };
 
+// TODO: change native to extern
 // keywords
 #define X_KW \
     KEYWORD(FUNC, "func") \

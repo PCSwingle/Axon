@@ -72,7 +72,7 @@ bool FuncAST::postregister(ModuleState& state, const std::string& unit) {
 bool StructAST::preregister(ModuleState& state, const std::string& unit) {
     std::unordered_map<std::string, std::shared_ptr<GeneratedValue> > generatedMethods;
     for (const auto& [methodName, method]: methods) {
-        generatedMethods[methodName] = method->declare(state, unit);
+        generatedMethods[methodName] = method->declare(state, unit + "." + structName + "." + methodName);
     }
 
     auto elements = std::vector<Type*>();

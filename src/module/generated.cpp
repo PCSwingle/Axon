@@ -7,9 +7,17 @@
 #include "ast/llvm_utils.h"
 #include "lexer/lexer.h"
 
-std::unordered_map<std::string, GeneratedType*> GeneratedType::registeredTypes{};
+std::unordered_map<TypeBacker, GeneratedType*, TypeBackerHash> GeneratedType::registeredTypes{};
 
-GeneratedType* GeneratedType::get(const std::string& type) {
+GeneratedType* GeneratedType::rawGet(const std::string& rawType) {
+    if (rawType.ends_with("[]")) {
+        return get(get(rawType.substr(0, rawType.length() - 2)));
+    } else {
+        return get(rawType);
+    }
+}
+
+GeneratedType* GeneratedType::get(const TypeBacker& type) {
     if (!registeredTypes.contains(type)) {
         auto* generatedType = new GeneratedType(type);
         registeredTypes.insert_or_assign(type, generatedType);
@@ -23,76 +31,132 @@ void GeneratedType::free() {
     }
 }
 
+bool GeneratedType::isBase() {
+    return std::holds_alternative<std::string>(type);
+}
+
 bool GeneratedType::isBool() {
-    return type == KW_BOOL;
+    if (!isBase()) {
+        return false;
+    }
+    auto ty = std::get<std::string>(type);
+    return ty == KW_BOOL;
 }
 
 bool GeneratedType::isVoid() {
-    return type == KW_VOID;
+    if (!isBase()) {
+        return false;
+    }
+    auto ty = std::get<std::string>(type);
+    return ty == KW_VOID;
 }
 
 bool GeneratedType::isPrimitive() {
-    return TYPES.contains(type);
+    return isBase() && TYPES.contains(std::get<std::string>(type));
 }
 
 bool GeneratedType::isFloating() {
-    return type == KW_F32 || type == KW_F64;
+    if (!isBase()) {
+        return false;
+    }
+    auto ty = std::get<std::string>(type);
+    return ty == KW_F32 || ty == KW_F64;
 }
 
 bool GeneratedType::isSigned() {
-    return type == KW_I64 || type == KW_I32 || type == KW_I8 || type == KW_ISIZE;
+    if (!isBase()) {
+        return false;
+    }
+    auto ty = std::get<std::string>(type);
+    return ty == KW_I64 || ty == KW_I32 || ty == KW_I8 || ty == KW_ISIZE;
 }
 
 bool GeneratedType::isNumber() {
-    return type == KW_I64 || type == KW_U64 || type == KW_I32 || type == KW_U32 ||
-           type == KW_I8 || type == KW_U8 || type == KW_ISIZE || type == KW_USIZE;
+    if (!isBase()) {
+        return false;
+    }
+    auto ty = std::get<std::string>(type);
+    return ty == KW_I64 || ty == KW_U64 || ty == KW_I32 || ty == KW_U32 ||
+           ty == KW_I8 || ty == KW_U8 || ty == KW_ISIZE || ty == KW_USIZE;
 }
 
 bool GeneratedType::isArray() {
-    return type.ends_with("[]");
+    return std::holds_alternative<GeneratedType*>(type);
+}
+
+GeneratedType* GeneratedType::getArrayBase() {
+    return isArray() ? std::get<GeneratedType*>(type) : nullptr;
+}
+
+GeneratedType* GeneratedType::getArrayType() {
+    return get(this);
+}
+
+bool GeneratedType::isFunction() {
+    return std::holds_alternative<FunctionTypeBacker>(type);
+}
+
+std::vector<GeneratedType*> GeneratedType::getArgs() {
+    if (!isFunction()) {
+        return std::vector<GeneratedType*>();
+    }
+    return std::get<0>(std::get<FunctionTypeBacker>(type));
+}
+
+GeneratedType* GeneratedType::getReturn() {
+    return isFunction() ? std::get<1>(std::get<FunctionTypeBacker>(type)) : nullptr;
 }
 
 bool GeneratedType::isDefined(ModuleState& state) {
-    return isArray()
-               ? getArrayBase()->isDefined(state)
-               : isPrimitive() || getGenStruct(state);
-}
-
-
-GeneratedType* GeneratedType::getArrayBase() {
-    return isArray() ? get(type.substr(0, type.length() - 2)) : nullptr;
-}
-
-GeneratedType* GeneratedType::toArray() {
-    return get(type + "[]");
+    if (isArray()) {
+        return getArrayBase()->isDefined(state);
+    } else if (isFunction()) {
+        for (const auto& arg: getArgs()) {
+            if (!arg->isDefined(state)) {
+                return false;
+            }
+        }
+        return getReturn()->isDefined(state);
+    } else if (isPrimitive()) {
+        return true;
+    } else {
+        return getGenStruct(state);
+    }
 }
 
 GeneratedStruct* GeneratedType::getGenStruct(ModuleState& state) {
-    return state.getStruct(type);
+    return isBase() ? state.getStruct(std::get<std::string>(type)) : nullptr;
 }
 
 Type* GeneratedType::getLLVMType(const ModuleState& state) {
-    if (type == KW_I8 || type == KW_U8) {
-        return Type::getInt8Ty(*state.ctx);
-    } else if (type == KW_I32 || type == KW_U32) {
-        return Type::getInt32Ty(*state.ctx);
-    } else if (type == KW_I64 || type == KW_U64) {
-        return Type::getInt64Ty(*state.ctx);
-    } else if (type == KW_USIZE || type == KW_ISIZE) {
-        return state.sizeTy;
-    } else if (type == KW_F32) {
-        return Type::getFloatTy(*state.ctx);
-    } else if (type == KW_F64) {
-        return Type::getDoubleTy(*state.ctx);
-    } else if (type == KW_BOOL) {
-        return Type::getInt1Ty(*state.ctx);
-    } else if (type == KW_VOID) {
-        return Type::getVoidTy(*state.ctx);
-    } else if (TYPES.contains(type)) {
-        logError("type " + type + " not implemented yet");
-        assert(false);
-    } else if (isArray()) {
+    if (isArray()) {
         return state.arrFatPtrTy;
+    } else if (isFunction()) {
+        // TODO
+        assert(false);
+    }
+
+    assert(isBase());
+    auto ty = std::get<std::string>(type);
+    if (ty == KW_I8 || ty == KW_U8) {
+        return Type::getInt8Ty(*state.ctx);
+    } else if (ty == KW_I32 || ty == KW_U32) {
+        return Type::getInt32Ty(*state.ctx);
+    } else if (ty == KW_I64 || ty == KW_U64) {
+        return Type::getInt64Ty(*state.ctx);
+    } else if (ty == KW_USIZE || ty == KW_ISIZE) {
+        return state.sizeTy;
+    } else if (ty == KW_F32) {
+        return Type::getFloatTy(*state.ctx);
+    } else if (ty == KW_F64) {
+        return Type::getDoubleTy(*state.ctx);
+    } else if (ty == KW_BOOL) {
+        return Type::getInt1Ty(*state.ctx);
+    } else if (ty == KW_VOID) {
+        return Type::getVoidTy(*state.ctx);
+    } else if (TYPES.contains(ty)) {
+        logError("type " + ty + " not implemented yet");
+        assert(false);
     } else {
         // Checking if the struct actually exists here would be a massive PITA
         // for such marginally low value, so we just assume it's a pointer.
@@ -138,6 +202,13 @@ std::unique_ptr<GeneratedValue> GeneratedValue::getArrayPointer(ModuleState& sta
     auto indexInt = state.builder->CreateAdd(baseInt, indexOffset, "ix_int");
     auto indexPtr = state.builder->CreateIntToPtr(indexInt, PointerType::getUnqual(*state.ctx), "ix_ptr");
     return std::make_unique<GeneratedValue>(baseType, indexPtr);
+}
+
+GeneratedFunction::GeneratedFunction(const std::vector<SigArg>& signature,
+                                     GeneratedType* returnType,
+                                     Function* function): signature(signature),
+                                                          returnType(returnType),
+                                                          function(function) {
 }
 
 std::optional<int> GeneratedStruct::getFieldIndex(const std::string& fieldName) {

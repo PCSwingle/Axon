@@ -5,7 +5,25 @@
 #include "module/generated.h"
 
 std::string GeneratedType::toString() {
-    return type;
+    if (isBase()) {
+        return std::get<std::string>(type);
+    } else if (isArray()) {
+        return std::get<GeneratedType*>(type)->toString() + "[]";
+    } else if (isFunction()) {
+        std::ostringstream result;
+        result << "((";
+        auto ty = std::get<FunctionTypeBacker>(type);
+        auto args = std::get<0>(ty);
+        for (const auto&& [i, arg]: std::views::enumerate(args)) {
+            result << arg->toString();
+            if (i != args.size() - 1) {
+                result << ",";
+            }
+        }
+        result << ") -> " << std::get<1>(ty)->toString() << ")";
+        return result.str();
+    }
+    assert(false);
 }
 
 std::string ValueExprAST::toString() {
@@ -49,6 +67,7 @@ std::string ConstructorExprAST::toString() {
         result << fieldName << ": " << fieldValue->toString() << ", ";
     }
     auto s = result.str();
+    // TODO: don't crash on 0 fields :)
     s.pop_back();
     s.pop_back();
     return "~" + type->toString() + "{" + s + "}";
@@ -60,6 +79,7 @@ std::string ArrayExprAST::toString() {
         result << value << ", ";
     }
     auto s = result.str();
+    // TODO: don't crash on 0 values :)
     s.pop_back();
     s.pop_back();
     return "~[" + s + "]";

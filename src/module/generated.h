@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 #include "typedefs.h"
+#include "utils.h"
 
 namespace llvm {
     class Function;
@@ -26,19 +27,23 @@ struct SigArg;
 /// are not guaranteed equal.
 struct GeneratedType {
 private:
-    static std::unordered_map<std::string, GeneratedType*> registeredTypes;
+    static std::unordered_map<TypeBacker, GeneratedType*, TypeBackerHash> registeredTypes;
 
-    std::string type;
+    TypeBacker type;
 
-    explicit GeneratedType(std::string type): type(std::move(type)) {
+    explicit GeneratedType(TypeBacker type): type(std::move(type)) {
     }
 
 public:
-    static GeneratedType* get(const std::string& type);
+    static GeneratedType* rawGet(const std::string& rawType);
+
+    static GeneratedType* get(const TypeBacker& type);
 
     static void free();
 
     std::string toString();
+
+    bool isBase();
 
     bool isBool();
 
@@ -54,11 +59,17 @@ public:
 
     bool isArray();
 
-    bool isDefined(ModuleState& state);
-
     GeneratedType* getArrayBase();
 
-    GeneratedType* toArray();
+    GeneratedType* getArrayType();
+
+    bool isFunction();
+
+    std::vector<GeneratedType*> getArgs();
+
+    GeneratedType* getReturn();
+
+    bool isDefined(ModuleState& state);
 
     GeneratedStruct* getGenStruct(ModuleState& state);
 
@@ -87,10 +98,7 @@ struct GeneratedFunction {
 
     explicit GeneratedFunction(const std::vector<SigArg>& signature,
                                GeneratedType* returnType,
-                               Function* function): signature(signature),
-                                                    returnType(returnType),
-                                                    function(function) {
-    }
+                               Function* function);
 };
 
 struct GeneratedStruct {

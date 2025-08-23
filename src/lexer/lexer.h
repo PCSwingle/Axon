@@ -101,6 +101,7 @@ inline const std::vector<std::string> ALLOPS = []() {
 }();
 
 // TODO: figure out if i want ptr types (only very rarely differnt from size anyways)
+// TODO: Change to int32, long64, byte8, float32, double64, etc.
 // types
 #define X_TYPE \
     TYPE(I8, "i8")       \

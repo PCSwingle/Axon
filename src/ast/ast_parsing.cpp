@@ -20,7 +20,7 @@ GeneratedType* parseType(Lexer& lexer) {
         lexer.consume();
     }
 
-    return GeneratedType::get(type);
+    return GeneratedType::rawGet(type);
 }
 
 std::unique_ptr<ExprAST> parseRHSExpr(Lexer& lexer) {

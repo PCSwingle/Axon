@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "utils.h"
+#include "module/generated.h"
 
 std::vector<std::string> split(const std::string& str, const std::string& separator) {
     std::vector<std::string> parts;
@@ -42,3 +43,26 @@ std::string readFile(const std::filesystem::path& filename) {
     return text;
 }
 
+size_t TypeBackerHash::operator()(const TypeBacker& type) const {
+    return std::visit([this](auto&& arg) {
+                          return (*this)(arg);
+                      },
+                      type);
+}
+
+size_t TypeBackerHash::operator()(const std::string& type) const {
+    return std::hash<std::string>()(type);
+}
+
+size_t TypeBackerHash::operator()(GeneratedType* type) const {
+    return std::hash<GeneratedType*>()(type);
+}
+
+size_t TypeBackerHash::operator()(const FunctionTypeBacker& type) const {
+    size_t seed = 0;
+    for (const auto& ty: std::get<0>(type)) {
+        seed ^= std::hash<GeneratedType*>()(ty) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    }
+    seed ^= std::hash<GeneratedType*>()(std::get<1>(type)) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    return seed;
+}

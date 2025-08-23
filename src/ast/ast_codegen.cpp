@@ -368,7 +368,7 @@ std::unique_ptr<GeneratedValue> ArrayExprAST::codegenValue(ModuleState& state, G
                                                              arrayPointer,
                                                              std::vector<unsigned>{0},
                                                              "arr_ptr_insert");
-    auto arrayValue = std::make_unique<GeneratedValue>(baseType->toArray(), arrayFatPointer);
+    auto arrayValue = std::make_unique<GeneratedValue>(baseType->getArrayType(), arrayFatPointer);
 
     for (auto&& [i, genValue]: enumerate(genValues)) {
         auto indexValue = std::make_unique<GeneratedValue>(GeneratedType::get(KW_USIZE),

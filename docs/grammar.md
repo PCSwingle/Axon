@@ -6,10 +6,10 @@
 <UnaryOp> -> - | ! | ... # worth pointing out `-` can be both unary and binary
 <VarOp> -> = | += | -= | ...
 
-<Call> -> <Identifier>([<Expr>,]*)
+<Call> -> ([<Expr>,]*)
 <Constructor> -> ~<Identifier> { [<Identifier>: <Expr>,]* }
 <Array> -> ~[[<Expr>,]*]
-<Expr> -> <Identifier> | <Value> | <Call> | <Constructor> | <Array> | <Expr> <BinaryOp> <Expr> | <UnaryOp> <Expr> | ( <Expr> )
+<Expr> -> <Identifier> | <Value> | <Expr><Call> | <Constructor> | <Array> | <Expr> <BinaryOp> <Expr> | <UnaryOp> <Expr> | ( <Expr> )
 
 <If> -> if (<Expr>) <Block> [elif (<Expr>) <Block>]* [else <Block>]?
 <While> -> while (<Expr>) <Block>

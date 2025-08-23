@@ -103,8 +103,8 @@ std::string FuncAST::toString() {
         }
     }
     auto sig = "func " + funcName + "(" + result.str() + "): " + returnType->toString();
-    if (native) {
-        return "native " + sig;
+    if (isExtern) {
+        return "extern " + sig;
     } else {
         return sig + " " + block->get()->toString();
     }

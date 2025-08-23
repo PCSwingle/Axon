@@ -382,8 +382,8 @@ bool ImportAST::codegen(ModuleState& state) {
 
 bool StructAST::codegen(ModuleState& state) {
     for (const auto& method: methods | std::views::values) {
-        if (method->native) {
-            state.setError(this->debugInfo, "Structs cannot have native methods");
+        if (method->isExtern) {
+            state.setError(this->debugInfo, "Structs cannot have extern methods");
             return false;
         }
         if (!method->codegen(state)) {
@@ -408,13 +408,13 @@ bool FuncAST::codegen(ModuleState& state) {
         auto arg = function->getArg(i);
         arg->setName(signature[i].identifier);
     }
-    if (native) {
+    if (isExtern) {
         return true;
     }
 
     // Function block
     if (!block.has_value()) {
-        state.setError(this->debugInfo, "No block given for non native function");
+        state.setError(this->debugInfo, "No block given for function");
         return false;
     }
     // TODO: store current insert point

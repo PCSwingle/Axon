@@ -237,7 +237,7 @@ class FuncAST : public TopLevelAST, public StatementAST {
 
 public:
     std::string funcName;
-    bool native;
+    bool isExtern;
 
     explicit FuncAST(
         std::string funcName,
@@ -245,11 +245,11 @@ public:
         signature,
         GeneratedType* returnType,
         std::optional<std::unique_ptr<BlockAST> > block,
-        const bool native): funcName(std::move(funcName)),
-                            signature(std::move(signature)),
-                            returnType(returnType),
-                            block(std::move(block)),
-                            native(native) {
+        const bool isExtern): funcName(std::move(funcName)),
+                              signature(std::move(signature)),
+                              returnType(returnType),
+                              block(std::move(block)),
+                              isExtern(isExtern) {
     }
 
     std::string toString() override;

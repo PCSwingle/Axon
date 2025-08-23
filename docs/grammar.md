@@ -15,7 +15,7 @@
 <While> -> while (<Expr>) <Block>
 
 <Var> -> <Type>? <Identifier> <VarOp> <Expr>
-<Func> -> native? func <Identifier>([<Type> <Identifier>,]*): <Type> <Block>?
+<Func> -> extern? func <Identifier>([<Type> <Identifier>,]*): <Type> <Block>?
 
 <Struct> -> struct <Identifier> { [<Type> <Identifier> <Delimiter>]*
 

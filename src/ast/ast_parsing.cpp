@@ -507,9 +507,9 @@ std::unique_ptr<ImportAST> parseImport(Lexer& lexer) {
 std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
     lexer.pushDebugInfo();
 
-    bool native = false;
-    if (lexer.curToken.rawToken == KW_NATIVE) {
-        native = true;
+    bool isExtern = false;
+    if (lexer.curToken.rawToken == KW_EXTERN) {
+        isExtern = true;
         lexer.consume();
     }
     if (lexer.curToken.rawToken != KW_FUNC) {
@@ -565,7 +565,7 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
     }
 
     std::optional<std::unique_ptr<BlockAST> > block;
-    if (!native) {
+    if (!isExtern) {
         block = parseBlock(lexer);
         if (!block.value()) {
             return nullptr;
@@ -577,7 +577,7 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
         std::move(signature),
         returnType,
         std::move(block),
-        native
+        isExtern
     );
     ast->setDebugInfo(lexer.popDebugInfo());
     return ast;
@@ -666,7 +666,7 @@ std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
     lexer.startDebugStatement();
     std::unique_ptr<StatementAST> statement;
 
-    if (lexer.curToken.rawToken == KW_FUNC || lexer.curToken.rawToken == KW_NATIVE) {
+    if (lexer.curToken.rawToken == KW_FUNC || lexer.curToken.rawToken == KW_EXTERN) {
         statement = parseFunc(lexer);
     } else if (lexer.curToken.rawToken == KW_IF) {
         statement = parseIf(lexer);
@@ -693,7 +693,7 @@ std::unique_ptr<TopLevelAST> parseTopLevel(Lexer& lexer) {
     lexer.startDebugStatement();
     std::unique_ptr<TopLevelAST> statement;
 
-    if (lexer.curToken.rawToken == KW_FUNC || lexer.curToken.rawToken == KW_NATIVE) {
+    if (lexer.curToken.rawToken == KW_FUNC || lexer.curToken.rawToken == KW_EXTERN) {
         statement = parseFunc(lexer);
     } else if (lexer.curToken.rawToken == KW_STRUCT) {
         statement = parseStruct(lexer);

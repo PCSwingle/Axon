@@ -45,7 +45,7 @@ std::shared_ptr<GeneratedValue> FuncAST::declare(ModuleState& state, const std::
 
 bool FuncAST::preregister(ModuleState& state, const std::string& unit) {
     std::string twine;
-    if (native || (funcName == "main" && unit == state.config.main)) {
+    if (isExtern || (funcName == "main" && unit == state.config.main)) {
         twine = funcName;
     } else {
         twine = unit + "." + funcName;

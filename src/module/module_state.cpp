@@ -88,6 +88,7 @@ bool ModuleState::useGlobalIdentifier(const std::string& unit,
     if (!globalIdentifiers.contains(globalIdentifier)) {
         return false;
     }
+    // TODO: don't copy and keep ownership solely in globalidentifiers
     return registerIdentifier(alias, std::make_unique<Identifier>(*globalIdentifiers.at(globalIdentifier)));
 }
 

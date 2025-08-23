@@ -233,6 +233,8 @@ class FuncAST : public TopLevelAST, public StatementAST {
     GeneratedType* returnType;
     std::optional<std::unique_ptr<BlockAST> > block;
 
+    std::shared_ptr<GeneratedValue> declaration = nullptr;
+
 public:
     std::string funcName;
     bool native;
@@ -251,6 +253,10 @@ public:
     }
 
     std::string toString() override;
+
+    // function twine is _only_ used to interface with external libraries. Otherwise, twine should simply be unique.
+    // used to create an llvm function declaration, but NOT put into scope.
+    std::shared_ptr<GeneratedValue> declare(ModuleState& state, const std::string& twine);
 
     bool preregister(ModuleState& state, const std::string& unit) override;
 

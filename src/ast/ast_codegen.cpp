@@ -393,17 +393,16 @@ bool StructAST::codegen(ModuleState& state) {
 }
 
 bool FuncAST::codegen(ModuleState& state) {
-    auto* genFunction = state.getVar(funcName);
-    if (!genFunction) {
-        state.setError(this->debugInfo, "Function not registered (this should not happen!)");
+    if (!declaration) {
+        state.setError(this->debugInfo, "Function not declared (this should not happen!)");
         return false;
     }
-    if (!genFunction->type->isFunction()) {
+    if (!declaration->type->isFunction()) {
         state.setError(this->debugInfo, "Function value not function type (this should not happen!)");
         return false;
     }
 
-    auto* function = static_cast<Function*>(genFunction->value);
+    auto* function = static_cast<Function*>(declaration->value);
     for (int i = 0; i < signature.size(); i++) {
         auto arg = function->getArg(i);
         arg->setName(signature[i].identifier);
@@ -421,7 +420,7 @@ bool FuncAST::codegen(ModuleState& state) {
     BasicBlock* BB = BasicBlock::Create(*state.ctx, "entry", function);
     state.builder->SetInsertPoint(BB);
 
-    state.enterFunc(genFunction);
+    state.enterFunc(declaration.get());
     for (const auto& [type, identifier]: signature) {
         if (!state.registerVar(identifier, type)) {
             state.setError(this->debugInfo,

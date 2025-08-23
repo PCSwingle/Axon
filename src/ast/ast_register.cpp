@@ -25,31 +25,36 @@ bool ImportAST::postregister(ModuleState& state, const std::string& unit) {
     return true;
 }
 
-bool FuncAST::preregister(ModuleState& state, const std::string& unit) {
+std::shared_ptr<GeneratedValue> FuncAST::declare(ModuleState& state, const std::string& twine) {
+    std::vector<GeneratedType*> args{};
     std::vector<Type*> argTypes;
     for (const auto& [type, identifier]: signature) {
+        args.push_back(type);
         argTypes.push_back(type->getLLVMType(state));
     }
+    auto functionType = std::make_tuple(args, returnType);
     FunctionType* type = FunctionType::get(returnType->getLLVMType(state), argTypes, false);
-
-    std::optional<std::string> customTwine{};
-    if (native || (funcName == "main" && unit == state.config.main)) {
-        customTwine = funcName;
-    }
-
     auto* function = Function::Create(type,
                                       Function::ExternalLinkage,
-                                      customTwine.value_or(unit + "." + funcName),
+                                      twine,
                                       state.module.get());
-    std::vector<GeneratedType*> args{};
-    for (const auto& arg: signature) {
-        args.push_back(arg.type);
+    auto genFunction = std::make_shared<GeneratedValue>(GeneratedType::get(functionType), function);
+    declaration = genFunction;
+    return genFunction;
+}
+
+bool FuncAST::preregister(ModuleState& state, const std::string& unit) {
+    std::string twine;
+    if (native || (funcName == "main" && unit == state.config.main)) {
+        twine = funcName;
+    } else {
+        twine = unit + "." + funcName;
     }
-    auto functionType = std::make_tuple(args, returnType);
+
+    auto genFunction = declare(state, twine);
     if (!state.registerGlobalIdentifier(unit,
                                         funcName,
-                                        std::make_unique<Identifier>(
-                                            GeneratedValue(GeneratedType::get(functionType), function)))) {
+                                        std::make_unique<Identifier>(std::move(*genFunction)))) {
         state.setError(this->debugInfo, "Duplicate identifier " + funcName);
         return false;
     }
@@ -65,12 +70,9 @@ bool FuncAST::postregister(ModuleState& state, const std::string& unit) {
 }
 
 bool StructAST::preregister(ModuleState& state, const std::string& unit) {
-    std::unordered_map<std::string, GeneratedValue*> generatedMethods;
+    std::unordered_map<std::string, std::shared_ptr<GeneratedValue> > generatedMethods;
     for (const auto& [methodName, method]: methods) {
-        if (!method->preregister(state, unit)) {
-            return false;
-        }
-        generatedMethods[methodName] = state.getVar(method->funcName);
+        generatedMethods[methodName] = method->declare(state, unit);
     }
 
     auto elements = std::vector<Type*>();
@@ -85,8 +87,8 @@ bool StructAST::preregister(ModuleState& state, const std::string& unit) {
                                         std::make_unique<Identifier>(
                                             GeneratedStruct(
                                                 GeneratedType::get(structName),
-                                                fields,
-                                                generatedMethods,
+                                                std::move(fields),
+                                                std::move(generatedMethods),
                                                 structType)))) {
         state.setError(this->debugInfo, "Duplicate identifier " + structName);
         return false;

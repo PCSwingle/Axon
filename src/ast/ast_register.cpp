@@ -53,12 +53,12 @@ bool FuncAST::postregister(ModuleState& state, const std::string& unit) {
 }
 
 bool StructAST::preregister(ModuleState& state, const std::string& unit) {
-    std::unordered_map<std::string, GeneratedFunction*> generatedMethods;
+    std::unordered_map<std::string, GeneratedValue*> generatedMethods;
     for (const auto& [methodName, method]: methods) {
         if (!method->preregister(state, unit)) {
             return false;
         }
-        generatedMethods[methodName] = state.getFunction(method->funcName);
+        generatedMethods[methodName] = state.getVar(method->funcName);
     }
 
     if (!state.registerGlobalStruct(unit, structName, fields, generatedMethods)) {

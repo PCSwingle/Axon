@@ -63,14 +63,20 @@ std::unique_ptr<GeneratedValue> ValueExprAST::codegenValue(ModuleState& state, G
 }
 
 std::unique_ptr<GeneratedValue> VariableExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
+    // TODO: change name when changing variableexprast
     auto pointer = codegenPointer(state);
     if (!pointer) {
         return nullptr;
     }
-    Value* val = state.builder->CreateLoad(pointer->type->getLLVMType(state),
-                                           pointer->value,
-                                           varName);
-    return std::make_unique<GeneratedValue>(pointer->type, val);
+
+    if (pointer->type->isFunction()) {
+        return pointer;
+    } else {
+        Value* val = state.builder->CreateLoad(pointer->type->getLLVMType(state),
+                                               pointer->value,
+                                               varName);
+        return std::make_unique<GeneratedValue>(pointer->type, val);
+    }
 }
 
 
@@ -211,7 +217,6 @@ std::unique_ptr<GeneratedValue> BinaryOpExprAST::codegenValue(ModuleState& state
     return std::make_unique<GeneratedValue>(type, val);
 }
 
-
 std::unique_ptr<GeneratedValue> UnaryOpExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
     auto genVal = expr->codegenValue(state, impliedType);
     if (!genVal) {
@@ -227,40 +232,44 @@ std::unique_ptr<GeneratedValue> UnaryOpExprAST::codegenValue(ModuleState& state,
     return std::make_unique<GeneratedValue>(genVal->type, val);
 }
 
-
 std::unique_ptr<GeneratedValue> CallExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
-    auto* genFunction = state.getFunction(callName);
-    if (!genFunction) {
-        return state.setError(this->debugInfo, "Function " + callName + " not defined");
+    auto calleeValue = callee->codegenValue(state, nullptr);
+    if (!calleeValue) {
+        return nullptr;
     }
-    auto* callee = genFunction->function;
-    if (callee->arg_size() != args.size()) {
+    if (!calleeValue->type->isFunction()) {
+        return state.setError(this->debugInfo, "Type " + calleeValue->type->toString() + " is not callable");
+    }
+
+    auto argTypes = calleeValue->type->getArgs();
+    if (argTypes.size() != args.size()) {
         return state.setError(this->debugInfo,
-                              "Expected " + std::to_string(callee->arg_size()) + " arguments, got " + std::to_string(
+                              "Expected " + std::to_string(argTypes.size()) + " arguments, got " +
+                              std::to_string(
                                   args.size()) +
                               "arguments");
     }
 
     std::vector<Value*> argsV;
     for (int i = 0; i < args.size(); i++) {
-        auto arg = args[i]->codegenValue(state, genFunction->signature[i].type);
+        auto arg = args[i]->codegenValue(state, argTypes[i]);
         if (!arg) {
             return nullptr;
         }
-        if (genFunction->signature[i].type != arg->type) {
+        if (argTypes[i] != arg->type) {
             return state.setError(this->debugInfo,
-                                  "Expected type " + genFunction->signature[i].type->toString() + ", got type " + arg->
-                                  type->
-                                  toString() + ". Call: " + toString());
+                                  "Expected type " + argTypes[i]->toString() + ", got type " + arg->type->toString());
         }
         argsV.push_back(arg->value);
     }
 
-    std::string twine = callee->getReturnType()->isVoidTy() ? "" : "call_" + callName;
-    auto* val = state.builder->CreateCall(callee,
+    std::string twine = calleeValue->type->getReturnType()->isVoid() ? "" : "call";
+    auto llvmTy = static_cast<FunctionType*>(calleeValue->type->getLLVMType(state));
+    auto* val = state.builder->CreateCall(llvmTy,
+                                          calleeValue->value,
                                           argsV,
                                           twine);
-    return std::make_unique<GeneratedValue>(genFunction->returnType, val);
+    return std::make_unique<GeneratedValue>(calleeValue->type->getReturnType(), val);
 }
 
 std::unique_ptr<GeneratedValue> MemberAccessExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
@@ -405,13 +414,17 @@ bool StructAST::codegen(ModuleState& state) {
 }
 
 bool FuncAST::codegen(ModuleState& state) {
-    auto* genFunction = state.getFunction(funcName);
+    auto* genFunction = state.getVar(funcName);
     if (!genFunction) {
         state.setError(this->debugInfo, "Function not registered (this should not happen!)");
         return false;
     }
+    if (!genFunction->type->isFunction()) {
+        state.setError(this->debugInfo, "Function value not function type (this should not happen!)");
+        return false;
+    }
 
-    auto* function = genFunction->function;
+    auto* function = static_cast<Function*>(genFunction->value);
     for (int i = 0; i < signature.size(); i++) {
         auto arg = function->getArg(i);
         arg->setName(signature[i].identifier);
@@ -429,11 +442,15 @@ bool FuncAST::codegen(ModuleState& state) {
     BasicBlock* BB = BasicBlock::Create(*state.ctx, "entry", function);
     state.builder->SetInsertPoint(BB);
 
-    if (!state.enterFunc(genFunction)) {
-        // TODO: output which identifier is clashing
-        state.setError(this->debugInfo, "Duplicate identifier in signature of function " + funcName);
-        return false;
+    state.enterFunc(genFunction);
+    for (const auto& [type, identifier]: signature) {
+        if (!state.registerVar(identifier, type)) {
+            state.setError(this->debugInfo,
+                           "Duplicate identifier " + identifier + " in signature of function " + funcName);
+            return false;
+        }
     }
+
     for (int i = 0; i < signature.size(); i++) {
         auto* genVar = state.getVar(signature[i].identifier);
         if (!genVar->type->isDefined(state)) {
@@ -445,6 +462,10 @@ bool FuncAST::codegen(ModuleState& state) {
     }
     if (!block->get()->codegen(state)) {
         return false;
+    }
+
+    for (auto const& [type, identifier]: signature) {
+        state.identifiers.erase(identifier);
     }
     state.exitFunc();
 

@@ -3,10 +3,9 @@
 #include <variant>
 
 struct GeneratedValue;
-struct GeneratedFunction;
 struct GeneratedStruct;
 
-typedef std::variant<GeneratedValue, GeneratedFunction, GeneratedStruct> Identifier;
+typedef std::variant<GeneratedValue, GeneratedStruct> Identifier;
 
 struct GeneratedType;
 

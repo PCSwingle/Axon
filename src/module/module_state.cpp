@@ -172,28 +172,18 @@ AllocaInst* ModuleState::createAlloca(GeneratedType* type, const std::string& na
     return newAlloca;
 }
 
-bool ModuleState::enterFunc(const GeneratedFunction* function) {
+void ModuleState::enterFunc(const GeneratedValue* function) {
     functionStack.push_back(function);
-    for (int i = 0; i < function->signature.size(); i++) {
-        auto [type, identifier] = function->signature[i];
-        if (!registerVar(identifier, type)) {
-            return false;
-        }
-    }
-    return true;
 }
 
 void ModuleState::exitFunc() {
-    for (auto const& [type, identifier]: functionStack.back()->signature) {
-        identifiers.erase(identifier);
-    }
     functionStack.pop_back();
 }
 
 GeneratedType* ModuleState::expectedReturnType() {
-    return functionStack.back()->returnType;
+    assert(functionStack.back()->type->isFunction());
+    return functionStack.back()->type->getReturnType();
 }
-
 
 void ModuleState::enterScope() {
     scopeStack.push_back(std::vector<std::string>());
@@ -252,27 +242,21 @@ bool ModuleState::registerGlobalFunction(const std::string& unit,
                                       Function::ExternalLinkage,
                                       customTwine.value_or(mergeGlobalIdentifier(unit, identifier)),
                                       module.get());
+    std::vector<GeneratedType*> args{};
+    for (const auto& arg: signature) {
+        args.push_back(arg.type);
+    }
+    auto functionType = std::make_tuple(args, returnType);
     return registerGlobalIdentifier(unit,
                                     identifier,
-                                    std::make_unique<Identifier>(GeneratedFunction(signature, returnType, function)));
-}
-
-GeneratedFunction* ModuleState::getFunction(const std::string& identifier) {
-    auto val = getIdentifier(identifier);
-    if (!val) {
-        return nullptr;
-    }
-    auto* function = std::get_if<GeneratedFunction>(val);
-    if (!function) {
-        return nullptr;
-    }
-    return function;
+                                    std::make_unique<Identifier>(
+                                        GeneratedValue(GeneratedType::get(functionType), function)));
 }
 
 bool ModuleState::registerGlobalStruct(const std::string& unit,
                                        const std::string& identifier,
                                        const std::vector<std::tuple<std::string, GeneratedType*> >& fields,
-                                       const std::unordered_map<std::string, GeneratedFunction*>& methods) {
+                                       const std::unordered_map<std::string, GeneratedValue*>& methods) {
     auto elements = std::vector<Type*>();
     for (auto& [fieldName, fieldType]: fields) {
         elements.push_back(fieldType->getLLVMType(*this));

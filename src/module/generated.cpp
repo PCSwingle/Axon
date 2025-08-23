@@ -103,7 +103,7 @@ std::vector<GeneratedType*> GeneratedType::getArgs() {
     return std::get<0>(std::get<FunctionTypeBacker>(type));
 }
 
-GeneratedType* GeneratedType::getReturn() {
+GeneratedType* GeneratedType::getReturnType() {
     return isFunction() ? std::get<1>(std::get<FunctionTypeBacker>(type)) : nullptr;
 }
 
@@ -116,7 +116,7 @@ bool GeneratedType::isDefined(ModuleState& state) {
                 return false;
             }
         }
-        return getReturn()->isDefined(state);
+        return getReturnType()->isDefined(state);
     } else if (isPrimitive()) {
         return true;
     } else {
@@ -132,8 +132,11 @@ Type* GeneratedType::getLLVMType(const ModuleState& state) {
     if (isArray()) {
         return state.arrFatPtrTy;
     } else if (isFunction()) {
-        // TODO
-        assert(false);
+        std::vector<Type*> argTypes{};
+        for (const auto& arg: getArgs()) {
+            argTypes.push_back(arg->getLLVMType(state));
+        }
+        return FunctionType::get(getReturnType()->getLLVMType(state), argTypes, false);
     }
 
     assert(isBase());
@@ -202,13 +205,6 @@ std::unique_ptr<GeneratedValue> GeneratedValue::getArrayPointer(ModuleState& sta
     auto indexInt = state.builder->CreateAdd(baseInt, indexOffset, "ix_int");
     auto indexPtr = state.builder->CreateIntToPtr(indexInt, PointerType::getUnqual(*state.ctx), "ix_ptr");
     return std::make_unique<GeneratedValue>(baseType, indexPtr);
-}
-
-GeneratedFunction::GeneratedFunction(const std::vector<SigArg>& signature,
-                                     GeneratedType* returnType,
-                                     Function* function): signature(signature),
-                                                          returnType(returnType),
-                                                          function(function) {
 }
 
 std::optional<int> GeneratedStruct::getFieldIndex(const std::string& fieldName) {

@@ -50,7 +50,7 @@ std::string CallExprAST::toString() {
             result << ", ";
         }
     }
-    return callName + "(" + result.str() + ")";
+    return callee->toString() + "(" + result.str() + ")";
 }
 
 std::string MemberAccessExprAST::toString() {
@@ -76,7 +76,7 @@ std::string ConstructorExprAST::toString() {
 std::string ArrayExprAST::toString() {
     std::ostringstream result;
     for (const auto& value: values) {
-        result << value << ", ";
+        result << value->toString() << ", ";
     }
     auto s = result.str();
     // TODO: don't crash on 0 values :)

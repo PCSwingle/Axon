@@ -67,7 +67,7 @@ public:
 
     std::vector<GeneratedType*> getArgs();
 
-    GeneratedType* getReturn();
+    GeneratedType* getReturnType();
 
     bool isDefined(ModuleState& state);
 
@@ -91,25 +91,15 @@ struct GeneratedValue {
     std::unique_ptr<GeneratedValue> getArrayPointer(ModuleState& state, const std::unique_ptr<GeneratedValue>& index);
 };
 
-struct GeneratedFunction {
-    std::vector<SigArg> signature;
-    GeneratedType* returnType;
-    Function* function;
-
-    explicit GeneratedFunction(const std::vector<SigArg>& signature,
-                               GeneratedType* returnType,
-                               Function* function);
-};
-
 struct GeneratedStruct {
     GeneratedType* type;
     std::vector<std::tuple<std::string, GeneratedType*> > fields;
-    std::unordered_map<std::string, GeneratedFunction*> methods;
+    std::unordered_map<std::string, GeneratedValue*> methods;
     StructType* structType;
 
     explicit GeneratedStruct(GeneratedType* type,
                              std::vector<std::tuple<std::string, GeneratedType*> > fields,
-                             std::unordered_map<std::string, GeneratedFunction*> methods,
+                             std::unordered_map<std::string, GeneratedValue*> methods,
                              StructType* structType
     ): type(type), fields(std::move(fields)), methods(std::move(methods)), structType(structType) {
     }

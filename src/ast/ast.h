@@ -82,6 +82,7 @@ public:
     std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state, GeneratedType* impliedType) override;
 };
 
+// TODO: rename this (since it encapsulates functions as well
 class VariableExprAST : public AssignableAST {
 public:
     std::string varName;
@@ -127,12 +128,12 @@ public:
 };
 
 class CallExprAST : public ExprAST {
-    std::string callName;
+    std::unique_ptr<ExprAST> callee;
     std::vector<std::unique_ptr<ExprAST> > args;
 
 public:
-    explicit CallExprAST(std::string callName,
-                         std::vector<std::unique_ptr<ExprAST> > args): callName(std::move(callName)),
+    explicit CallExprAST(std::unique_ptr<ExprAST> callee,
+                         std::vector<std::unique_ptr<ExprAST> > args): callee(std::move(callee)),
                                                                        args(std::move(args)) {
     }
 
@@ -395,10 +396,10 @@ std::unique_ptr<WhileAST> parseWhile(Lexer& lexer);
 
 std::unique_ptr<VarAST> parseVar(Lexer& lexer);
 
-std::unique_ptr<CallExprAST> parseCall(Lexer& lexer);
+std::unique_ptr<CallExprAST> parseCall(Lexer& lexer, std::unique_ptr<ExprAST> callee);
 
 template<std::derived_from<ExprAST> T>
-std::unique_ptr<T> parseAccessors(Lexer& lexer, std::unique_ptr<T> expr);
+std::unique_ptr<T> parseAccessor(Lexer& lexer, std::unique_ptr<T> expr);
 
 std::unique_ptr<ConstructorExprAST> parseConstructor(Lexer& lexer);
 

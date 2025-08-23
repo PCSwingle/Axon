@@ -22,7 +22,6 @@ class UnitAST;
 
 struct GeneratedType;
 struct GeneratedStruct;
-struct GeneratedFunction;
 struct GeneratedValue;
 
 class ModuleState {
@@ -78,10 +77,10 @@ public:
 
     // codegen state
     std::unordered_map<std::string, std::unique_ptr<Identifier> > identifiers;
-    std::vector<const GeneratedFunction*> functionStack;
+    std::vector<const GeneratedValue*> functionStack;
     std::vector<std::vector<std::string> > scopeStack;
 
-    bool enterFunc(const GeneratedFunction* function);
+    void enterFunc(const GeneratedValue* function);
 
     void exitFunc();
 
@@ -99,6 +98,7 @@ private:
 public:
     bool registerVar(const std::string& identifier, GeneratedType* type);
 
+    // TODO: change to getvalue
     GeneratedValue* getVar(const std::string& identifier);
 
     bool registerGlobalFunction(const std::string& unit,
@@ -108,12 +108,10 @@ public:
                                 FunctionType* type,
                                 const std::optional<std::string>& customTwine = std::optional<std::string>());
 
-    GeneratedFunction* getFunction(const std::string& identifier);
-
     bool registerGlobalStruct(const std::string& unit,
                               const std::string& identifier,
                               const std::vector<std::tuple<std::string, GeneratedType*> >& fields,
-                              const std::unordered_map<std::string, GeneratedFunction*>& methods
+                              const std::unordered_map<std::string, GeneratedValue*>& methods
     );
 
     GeneratedStruct* getStruct(const std::string& identifier);

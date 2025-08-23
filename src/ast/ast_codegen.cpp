@@ -19,6 +19,7 @@ std::unique_ptr<GeneratedValue> AssignableAST::codegenValue(ModuleState& state, 
         return nullptr;
     }
 
+    // TODO: this doesn't currently work unless you directly call the function
     if (maybePointer->type->isFunction()) {
         return maybePointer;
     } else {

@@ -663,7 +663,6 @@ bool isVarAssignment(Lexer& lexer) {
 }
 
 std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
-    lexer.startDebugStatement();
     std::unique_ptr<StatementAST> statement;
 
     if (lexer.curToken.rawToken == KW_FUNC || lexer.curToken.rawToken == KW_EXTERN) {

@@ -49,29 +49,29 @@ std::unique_ptr<GeneratedValue> ValueExprAST::codegenValue(ModuleState& state, G
         return std::make_unique<GeneratedValue>(GeneratedType::get(KW_BOOL), ConstantInt::getFalse(*state.ctx));
     } else if (rawValue.find('.') != std::string::npos) {
         APFloat apVal(APFloat::IEEEsingle());
-        if (impliedType == GeneratedType::get(KW_F64)) {
+        if (impliedType == GeneratedType::get(KW_DOUBLE)) {
             apVal = APFloat(APFloat::IEEEdouble(), rawValue);
-        } else if (impliedType == GeneratedType::get(KW_F32)) {
+        } else if (impliedType == GeneratedType::get(KW_FLOAT)) {
             apVal = APFloat(APFloat::IEEEsingle(), rawValue);
         } else {
             // Default floating type
-            impliedType = GeneratedType::get(KW_F64);
+            impliedType = GeneratedType::get(KW_DOUBLE);
             apVal = APFloat(APFloat::IEEEdouble(), rawValue);
         }
         return std::make_unique<GeneratedValue>(impliedType, ConstantFP::get(impliedType->getLLVMType(state), apVal));
     } else {
         APInt apVal;
-        if (impliedType == GeneratedType::get(KW_I64) || impliedType == GeneratedType::get(KW_U64)) {
+        if (impliedType == GeneratedType::get(KW_LONG) || impliedType == GeneratedType::get(KW_ULONG)) {
             apVal = APInt(64, rawValue, 10);
-        } else if (impliedType == GeneratedType::get(KW_I32) || impliedType == GeneratedType::get(KW_U32)) {
+        } else if (impliedType == GeneratedType::get(KW_INT) || impliedType == GeneratedType::get(KW_UINT)) {
             apVal = APInt(32, rawValue, 10);
-        } else if (impliedType == GeneratedType::get(KW_I8) || impliedType == GeneratedType::get(KW_U8)) {
+        } else if (impliedType == GeneratedType::get(KW_BYTE) || impliedType == GeneratedType::get(KW_UBYTE)) {
             apVal = APInt(8, rawValue, 10);
         } else if (impliedType == GeneratedType::get(KW_ISIZE) || impliedType == GeneratedType::get(KW_USIZE)) {
             apVal = APInt(state.sizeTy->getIntegerBitWidth(), rawValue, 10);
         } else {
             // Default int type
-            impliedType = GeneratedType::get(KW_I32);
+            impliedType = GeneratedType::get(KW_INT);
             apVal = APInt(32, rawValue, 10);
         }
         // todo: if number overflows raise error

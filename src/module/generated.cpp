@@ -11,7 +11,7 @@ std::unordered_map<TypeBacker, GeneratedType*, TypeBackerHash> GeneratedType::re
 
 GeneratedType* GeneratedType::rawGet(const std::string& rawType) {
     if (rawType.ends_with("[]")) {
-        return get(get(rawType.substr(0, rawType.length() - 2)));
+        return get(rawGet(rawType.substr(0, rawType.length() - 2)));
     } else {
         return get(rawType);
     }
@@ -60,7 +60,7 @@ bool GeneratedType::isFloating() {
         return false;
     }
     auto ty = std::get<std::string>(type);
-    return ty == KW_F32 || ty == KW_F64;
+    return ty == KW_FLOAT || ty == KW_DOUBLE;
 }
 
 bool GeneratedType::isSigned() {
@@ -68,7 +68,7 @@ bool GeneratedType::isSigned() {
         return false;
     }
     auto ty = std::get<std::string>(type);
-    return ty == KW_I64 || ty == KW_I32 || ty == KW_I8 || ty == KW_ISIZE;
+    return ty == KW_LONG || ty == KW_INT || ty == KW_BYTE || ty == KW_ISIZE;
 }
 
 bool GeneratedType::isNumber() {
@@ -76,8 +76,8 @@ bool GeneratedType::isNumber() {
         return false;
     }
     auto ty = std::get<std::string>(type);
-    return ty == KW_I64 || ty == KW_U64 || ty == KW_I32 || ty == KW_U32 ||
-           ty == KW_I8 || ty == KW_U8 || ty == KW_ISIZE || ty == KW_USIZE;
+    return ty == KW_LONG || ty == KW_ULONG || ty == KW_INT || ty == KW_UINT ||
+           ty == KW_BYTE || ty == KW_UBYTE || ty == KW_ISIZE || ty == KW_USIZE;
 }
 
 bool GeneratedType::isArray() {
@@ -141,17 +141,17 @@ Type* GeneratedType::getLLVMType(const ModuleState& state) {
 
     assert(isBase());
     auto ty = std::get<std::string>(type);
-    if (ty == KW_I8 || ty == KW_U8) {
+    if (ty == KW_BYTE || ty == KW_UBYTE) {
         return Type::getInt8Ty(*state.ctx);
-    } else if (ty == KW_I32 || ty == KW_U32) {
+    } else if (ty == KW_INT || ty == KW_UINT) {
         return Type::getInt32Ty(*state.ctx);
-    } else if (ty == KW_I64 || ty == KW_U64) {
+    } else if (ty == KW_LONG || ty == KW_ULONG) {
         return Type::getInt64Ty(*state.ctx);
     } else if (ty == KW_USIZE || ty == KW_ISIZE) {
         return state.sizeTy;
-    } else if (ty == KW_F32) {
+    } else if (ty == KW_FLOAT) {
         return Type::getFloatTy(*state.ctx);
-    } else if (ty == KW_F64) {
+    } else if (ty == KW_DOUBLE) {
         return Type::getDoubleTy(*state.ctx);
     } else if (ty == KW_BOOL) {
         return Type::getInt1Ty(*state.ctx);

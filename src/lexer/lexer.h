@@ -100,22 +100,21 @@ inline const std::vector<std::string> ALLOPS = []() {
     return allOps;
 }();
 
-// TODO: figure out if i want ptr types (only very rarely differnt from size anyways)
-// TODO: Change to int32, long64, byte8, float32, double64, etc.
+// TODO: figure out if we need ptr types (only very rarely different from size anyways)
 // types
 #define X_TYPE \
-    TYPE(I8, "i8")       \
-    TYPE(U8, "u8")       \
-    TYPE(I32, "i32")     \
-    TYPE(U32, "u32")     \
-    TYPE(I64, "i64")     \
-    TYPE(U64, "u64")     \
+    TYPE(BYTE, "byte")       \
+    TYPE(UBYTE, "ubyte")       \
+    TYPE(INT, "int")     \
+    TYPE(UINT, "uint")     \
+    TYPE(LONG, "long")     \
+    TYPE(ULONG, "ulong")     \
     TYPE(ISIZE, "isize") \
     TYPE(USIZE, "usize") \
-/*  TYPE(IPTR, "iptr")   \
+/*  TYPE(PTR, "ptr")   \
     TYPE(UPTR, "uptr")*/ \
-    TYPE(F32, "f32")     \
-    TYPE(F64, "f64")     \
+    TYPE(FLOAT, "float")     \
+    TYPE(DOUBLE, "double")     \
     TYPE(BOOL, "bool")   \
     TYPE(VOID, "void")
 

@@ -66,6 +66,8 @@ public:
 
 class AssignableAST : virtual public ExprAST {
 public:
+    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state, GeneratedType* impliedType) override;
+
     virtual std::unique_ptr<GeneratedValue> codegenPointer(ModuleState& state) = 0;
 };
 
@@ -91,8 +93,6 @@ public:
     }
 
     std::string toString() override;
-
-    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state, GeneratedType* impliedType) override;
 
     std::unique_ptr<GeneratedValue> codegenPointer(ModuleState& state) override;
 };
@@ -154,8 +154,6 @@ public:
 
     std::string toString() override;
 
-    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state, GeneratedType* impliedType) override;
-
     std::unique_ptr<GeneratedValue> codegenPointer(ModuleState& state) override;
 };
 
@@ -170,8 +168,6 @@ public:
     }
 
     std::string toString() override;
-
-    std::unique_ptr<GeneratedValue> codegenValue(ModuleState& state, GeneratedType* impliedType) override;
 
     std::unique_ptr<GeneratedValue> codegenPointer(ModuleState& state) override;
 };

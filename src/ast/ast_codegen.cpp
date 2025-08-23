@@ -12,6 +12,23 @@
 
 using namespace llvm;
 
+// higher level
+std::unique_ptr<GeneratedValue> AssignableAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
+    auto maybePointer = codegenPointer(state);
+    if (!maybePointer) {
+        return nullptr;
+    }
+
+    if (maybePointer->type->isFunction()) {
+        return maybePointer;
+    } else {
+        Value* val = state.builder->CreateLoad(maybePointer->type->getLLVMType(state),
+                                               maybePointer->value,
+                                               "pointer_load");
+        return std::make_unique<GeneratedValue>(maybePointer->type, val);
+    }
+}
+
 // expr
 bool ExprAST::codegen(ModuleState& state) {
     if (!codegenValue(state, nullptr)) {
@@ -61,24 +78,6 @@ std::unique_ptr<GeneratedValue> ValueExprAST::codegenValue(ModuleState& state, G
                                                 ConstantInt::getIntegerValue(impliedType->getLLVMType(state), apVal));
     }
 }
-
-std::unique_ptr<GeneratedValue> VariableExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
-    // TODO: change name when changing variableexprast
-    auto pointer = codegenPointer(state);
-    if (!pointer) {
-        return nullptr;
-    }
-
-    if (pointer->type->isFunction()) {
-        return pointer;
-    } else {
-        Value* val = state.builder->CreateLoad(pointer->type->getLLVMType(state),
-                                               pointer->value,
-                                               varName);
-        return std::make_unique<GeneratedValue>(pointer->type, val);
-    }
-}
-
 
 static std::unordered_map<std::string, Instruction::BinaryOps> ibinopMap{
     {"+", Instruction::Add},
@@ -270,26 +269,6 @@ std::unique_ptr<GeneratedValue> CallExprAST::codegenValue(ModuleState& state, Ge
                                           argsV,
                                           twine);
     return std::make_unique<GeneratedValue>(calleeValue->type->getReturnType(), val);
-}
-
-std::unique_ptr<GeneratedValue> MemberAccessExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
-    auto pointer = codegenPointer(state);
-    if (!pointer) {
-        return nullptr;
-    }
-    auto val = state.builder->CreateLoad(pointer->type->getLLVMType(state),
-                                         pointer->value,
-                                         "member_access_" + fieldName);
-    return std::make_unique<GeneratedValue>(pointer->type, val);
-}
-
-std::unique_ptr<GeneratedValue> SubscriptExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
-    auto pointer = codegenPointer(state);
-    if (!pointer) {
-        return nullptr;
-    }
-    auto val = state.builder->CreateLoad(pointer->type->getLLVMType(state), pointer->value, "array_access");
-    return std::make_unique<GeneratedValue>(pointer->type, val);
 }
 
 std::unique_ptr<GeneratedValue> ConstructorExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {

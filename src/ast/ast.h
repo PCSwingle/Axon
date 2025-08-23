@@ -403,8 +403,7 @@ std::unique_ptr<ArrayExprAST> parseArray(Lexer& lexer);
 
 std::unique_ptr<ImportAST> parseImport(Lexer& lexer);
 
-std::unique_ptr<FuncAST> parseFunc(Lexer& lexer,
-                                   const std::optional<std::string>& identifierPrefix = std::optional<std::string>());
+std::unique_ptr<FuncAST> parseFunc(Lexer& lexer);
 
 std::unique_ptr<StructAST> parseStruct(Lexer& lexer);
 

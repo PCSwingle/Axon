@@ -53,8 +53,6 @@ private:
 
     std::unordered_map<std::string, std::unique_ptr<Identifier> > globalIdentifiers;
 
-    static std::string mergeGlobalIdentifier(const std::string& unit, const std::string& identifier);
-
     std::unique_ptr<DebugInfo> buildErrorDebugInfo;
     std::string buildError;
 
@@ -98,21 +96,8 @@ private:
 public:
     bool registerVar(const std::string& identifier, GeneratedType* type);
 
-    // TODO: change to getvalue
+    // TODO: change to getidentifier
     GeneratedValue* getVar(const std::string& identifier);
-
-    bool registerGlobalFunction(const std::string& unit,
-                                const std::string& identifier,
-                                const std::vector<SigArg>& signature,
-                                GeneratedType* returnType,
-                                FunctionType* type,
-                                const std::optional<std::string>& customTwine = std::optional<std::string>());
-
-    bool registerGlobalStruct(const std::string& unit,
-                              const std::string& identifier,
-                              const std::vector<std::tuple<std::string, GeneratedType*> >& fields,
-                              const std::unordered_map<std::string, GeneratedValue*>& methods
-    );
 
     GeneratedStruct* getStruct(const std::string& identifier);
 };

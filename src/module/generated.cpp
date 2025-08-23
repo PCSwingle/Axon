@@ -174,6 +174,11 @@ std::unique_ptr<GeneratedValue> GeneratedValue::getFieldPointer(ModuleState& sta
     if (!genStruct) {
         return nullptr;
     }
+
+    if (genStruct->methods.contains(fieldName)) {
+        return std::make_unique<GeneratedValue>(*genStruct->methods.at(fieldName));
+    }
+
     auto fieldIndex = genStruct->getFieldIndex(fieldName);
     if (!fieldIndex.has_value()) {
         return nullptr;

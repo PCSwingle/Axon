@@ -504,7 +504,7 @@ std::unique_ptr<ImportAST> parseImport(Lexer& lexer) {
     return ast;
 }
 
-std::unique_ptr<FuncAST> parseFunc(Lexer& lexer, const std::optional<std::string>& identifierPrefix) {
+std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
     lexer.pushDebugInfo();
 
     bool native = false;
@@ -522,9 +522,6 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer, const std::optional<std::string
     }
     auto funcName = lexer.curToken.rawToken;
     lexer.consume();
-    if (identifierPrefix.has_value()) {
-        funcName = identifierPrefix.value() + funcName;
-    }
 
     if (lexer.curToken.rawToken != "(") {
         return lexer.expected("(");
@@ -614,7 +611,7 @@ std::unique_ptr<StructAST> parseStruct(Lexer& lexer) {
         }
 
         if (lexer.curToken.rawToken == KW_FUNC) {
-            auto function = parseFunc(lexer, structIdentifier + ".");
+            auto function = parseFunc(lexer);
             if (!function) {
                 return nullptr;
             }

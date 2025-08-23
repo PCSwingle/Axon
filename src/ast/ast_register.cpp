@@ -37,7 +37,19 @@ bool FuncAST::preregister(ModuleState& state, const std::string& unit) {
         customTwine = funcName;
     }
 
-    if (!state.registerGlobalFunction(unit, funcName, signature, returnType, type, customTwine)) {
+    auto* function = Function::Create(type,
+                                      Function::ExternalLinkage,
+                                      customTwine.value_or(unit + "." + funcName),
+                                      state.module.get());
+    std::vector<GeneratedType*> args{};
+    for (const auto& arg: signature) {
+        args.push_back(arg.type);
+    }
+    auto functionType = std::make_tuple(args, returnType);
+    if (!state.registerGlobalIdentifier(unit,
+                                        funcName,
+                                        std::make_unique<Identifier>(
+                                            GeneratedValue(GeneratedType::get(functionType), function)))) {
         state.setError(this->debugInfo, "Duplicate identifier " + funcName);
         return false;
     }
@@ -61,7 +73,21 @@ bool StructAST::preregister(ModuleState& state, const std::string& unit) {
         generatedMethods[methodName] = state.getVar(method->funcName);
     }
 
-    if (!state.registerGlobalStruct(unit, structName, fields, generatedMethods)) {
+    auto elements = std::vector<Type*>();
+    for (auto& [fieldName, fieldType]: fields) {
+        elements.push_back(fieldType->getLLVMType(state));
+    }
+    // TODO: I don't think llvm does padding / alignment, so we have to do it ourselves
+    auto* structType = StructType::create(*state.ctx, elements, unit + "." + structName);
+
+    if (!state.registerGlobalIdentifier(unit,
+                                        structName,
+                                        std::make_unique<Identifier>(
+                                            GeneratedStruct(
+                                                GeneratedType::get(structName),
+                                                fields,
+                                                generatedMethods,
+                                                structType)))) {
         state.setError(this->debugInfo, "Duplicate identifier " + structName);
         return false;
     }
@@ -69,12 +95,6 @@ bool StructAST::preregister(ModuleState& state, const std::string& unit) {
 }
 
 bool StructAST::postregister(ModuleState& state, const std::string& unit) {
-    for (const auto& method: methods | std::views::values) {
-        if (!method->postregister(state, unit)) {
-            return false;
-        }
-    }
-
     if (!state.useGlobalIdentifier(unit, structName, structName)) {
         state.setError(this->debugInfo, "Duplicate identifier " + structName);
         return false;

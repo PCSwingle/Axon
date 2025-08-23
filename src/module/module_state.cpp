@@ -47,10 +47,6 @@ std::filesystem::path ModuleState::unitToPath(const std::string& unit) {
     return path;
 }
 
-std::string ModuleState::mergeGlobalIdentifier(const std::string& unit, const std::string& identifier) {
-    return unit + "." + identifier;
-}
-
 std::nullptr_t ModuleState::setError(const DebugInfo& debugInfo, const std::string& error) {
     buildErrorDebugInfo = std::make_unique<DebugInfo>(debugInfo);
     buildError = error;
@@ -77,7 +73,7 @@ bool ModuleState::registerUnit(const std::string& unit) {
 bool ModuleState::registerGlobalIdentifier(const std::string& unit,
                                            const std::string& identifier,
                                            std::unique_ptr<Identifier> val) {
-    auto globalIdentifier = mergeGlobalIdentifier(unit, identifier);
+    auto globalIdentifier = unit + "." + identifier;
     if (globalIdentifiers.contains(globalIdentifier)) {
         return false;
     }
@@ -88,7 +84,7 @@ bool ModuleState::registerGlobalIdentifier(const std::string& unit,
 bool ModuleState::useGlobalIdentifier(const std::string& unit,
                                       const std::string& identifier,
                                       const std::string& alias) {
-    auto globalIdentifier = mergeGlobalIdentifier(unit, identifier);
+    auto globalIdentifier = unit + "." + identifier;
     if (!globalIdentifiers.contains(globalIdentifier)) {
         return false;
     }
@@ -230,47 +226,6 @@ GeneratedValue* ModuleState::getVar(const std::string& identifier) {
         return nullptr;
     }
     return varAlloca;
-}
-
-bool ModuleState::registerGlobalFunction(const std::string& unit,
-                                         const std::string& identifier,
-                                         const std::vector<SigArg>& signature,
-                                         GeneratedType* returnType,
-                                         FunctionType* type,
-                                         const std::optional<std::string>& customTwine) {
-    auto* function = Function::Create(type,
-                                      Function::ExternalLinkage,
-                                      customTwine.value_or(mergeGlobalIdentifier(unit, identifier)),
-                                      module.get());
-    std::vector<GeneratedType*> args{};
-    for (const auto& arg: signature) {
-        args.push_back(arg.type);
-    }
-    auto functionType = std::make_tuple(args, returnType);
-    return registerGlobalIdentifier(unit,
-                                    identifier,
-                                    std::make_unique<Identifier>(
-                                        GeneratedValue(GeneratedType::get(functionType), function)));
-}
-
-bool ModuleState::registerGlobalStruct(const std::string& unit,
-                                       const std::string& identifier,
-                                       const std::vector<std::tuple<std::string, GeneratedType*> >& fields,
-                                       const std::unordered_map<std::string, GeneratedValue*>& methods) {
-    auto elements = std::vector<Type*>();
-    for (auto& [fieldName, fieldType]: fields) {
-        elements.push_back(fieldType->getLLVMType(*this));
-    }
-    // TODO: I don't think llvm does padding / alignment, so we have to do it ourselves
-    auto* structType = StructType::create(*ctx, elements, mergeGlobalIdentifier(unit, identifier));
-    return registerGlobalIdentifier(unit,
-                                    identifier,
-                                    std::make_unique<Identifier>(
-                                        GeneratedStruct(
-                                            GeneratedType::get(identifier),
-                                            fields,
-                                            methods,
-                                            structType)));
 }
 
 GeneratedStruct* ModuleState::getStruct(const std::string& identifier) {

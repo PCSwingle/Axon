@@ -240,3 +240,23 @@ GeneratedStruct* ModuleState::getStruct(const std::string& identifier) {
     }
     return structIdentifier;
 }
+
+Constant* ModuleState::getInternedString(const std::string& strVal) {
+    if (!internedStrings.contains(strVal)) {
+        auto* internPointer =
+                builder->CreateGlobalString(
+                    strVal,
+                    "intern_" + strVal.substr(0, 8),
+                    0,
+                    module.get(),
+                    false);
+        auto* fatPointerStruct = ConstantStruct::get(arrFatPtrTy,
+                                                     std::vector<Constant*>{
+                                                         internPointer,
+                                                         ConstantInt::get(sizeTy, APInt(64, strVal.length()))
+                                                     }
+        );
+        internedStrings.emplace(std::make_tuple(strVal, fatPointerStruct));
+    }
+    return internedStrings.at(strVal);
+}

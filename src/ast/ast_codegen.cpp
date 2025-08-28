@@ -42,7 +42,10 @@ bool ExprAST::codegen(ModuleState& state) {
 std::unique_ptr<GeneratedValue> ValueExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
     if (rawValue.front() == '\"' || rawValue.front() == '\'') {
         auto strVal = rawValue.substr(1, rawValue.length() - 2);
-        return state.setError(this->debugInfo, "string literals not implemented yet");
+        auto intern = state.getInternedString(strVal);
+        // TODO: make string type
+        auto baseType = GeneratedType::rawGet(KW_UBYTE);
+        return std::make_unique<GeneratedValue>(baseType->getArrayType(false), intern);
     } else if (rawValue == KW_TRUE) {
         return std::make_unique<GeneratedValue>(GeneratedType::rawGet(KW_BOOL), ConstantInt::getTrue(*state.ctx));
     } else if (rawValue == KW_FALSE) {
@@ -347,16 +350,7 @@ std::unique_ptr<GeneratedValue> ArrayExprAST::codegenValue(ModuleState& state, G
 
     // TODO: figure out if we need to align anything ever? I don't think we do as long as we ensure structs are aligned
     auto* arrayPointer = createMalloc(state, allocSize, "array");
-    auto* fatPointerStruct = ConstantStruct::get(state.arrFatPtrTy,
-                                                 std::vector<Constant*>{
-                                                     UndefValue::get(PointerType::getUnqual(*state.ctx)),
-                                                     ConstantInt::get(state.sizeTy, APInt(64, values.size()))
-                                                 }
-    );
-    auto* arrayFatPointer = state.builder->CreateInsertValue(fatPointerStruct,
-                                                             arrayPointer,
-                                                             std::vector<unsigned>{0},
-                                                             "arr_ptr_insert");
+    auto* arrayFatPointer = createArrayFatPointer(state, arrayPointer, values.size());
     auto arrayValue = std::make_unique<GeneratedValue>(baseType->getArrayType(true), arrayFatPointer);
 
     for (auto&& [i, genValue]: enumerate(genValues)) {

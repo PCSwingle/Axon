@@ -145,8 +145,12 @@ Token Lexer::process() {
         while (cur != endChar && cur != EOF) {
             if (cur == '\\') {
                 next();
-                if (ESCAPES.contains(cur)) {
-                    logWarning("Non escapeable character " + std::string(1, cur) + " escaped");
+                if (!ESCAPES.contains(cur)) {
+                    logWarning("Non escapeable character `" + std::string(1, cur) + "` escaped");
+                } else {
+                    rawToken += ESCAPES.at(cur);
+                    next();
+                    continue;
                 }
             }
             rawToken += cur;

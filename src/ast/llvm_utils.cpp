@@ -45,3 +45,17 @@ CallInst* createMalloc(ModuleState& state, Value* allocSize, const std::string& 
     assert(!mallocCall->getType()->isVoidTy() && "Malloc has void return type");
     return mallocCall;
 }
+
+Value* createArrayFatPointer(const ModuleState& state, Value* arrayPointer, const int length) {
+    auto* fatPointerStruct = ConstantStruct::get(state.arrFatPtrTy,
+                                                 std::vector<Constant*>{
+                                                     UndefValue::get(PointerType::getUnqual(*state.ctx)),
+                                                     ConstantInt::get(state.sizeTy, APInt(64, length))
+                                                 }
+    );
+    auto* arrayFatPointer = state.builder->CreateInsertValue(fatPointerStruct,
+                                                             arrayPointer,
+                                                             std::vector<unsigned>{0},
+                                                             "arr_ptr_insert");
+    return arrayFatPointer;
+}

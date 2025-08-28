@@ -78,7 +78,8 @@ inline const std::unordered_set<std::string> VAROPS{
 inline const std::unordered_map<char, std::string> ESCAPES{
     {'"', "\""},
     {'\'', "'"},
-    {'\\', "\\"}
+    {'\\', "\\"},
+    {'n', "\n"},
 };
 
 inline const std::vector<std::string> ALLOPS = []() {

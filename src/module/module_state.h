@@ -53,6 +53,8 @@ private:
 
     std::unordered_map<std::string, std::unique_ptr<Identifier> > globalIdentifiers;
 
+    std::unordered_map<std::string, Constant*> internedStrings;
+
     std::unique_ptr<DebugInfo> buildErrorDebugInfo;
     std::string buildError;
 
@@ -100,4 +102,9 @@ public:
     GeneratedValue* getVar(const std::string& identifier);
 
     GeneratedStruct* getStruct(const std::string& identifier);
+
+    // Globals
+
+    // Gets a string intern if it already exists, otherwise creates it
+    Constant* getInternedString(const std::string& strVal);
 };

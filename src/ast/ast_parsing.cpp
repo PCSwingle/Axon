@@ -534,7 +534,19 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
     lexer.consume();
 
     std::vector<SigArg> signature;
+    bool hasVarArgs = false;
     while (lexer.curToken.rawToken != ")") {
+        if (lexer.curToken.rawToken == "." && lexer.peek(1).rawToken == "." && lexer.peek(2).rawToken == ".") {
+            hasVarArgs = true;
+            lexer.consume();
+            lexer.consume();
+            lexer.consume();
+            if (lexer.curToken.rawToken != ")") {
+                return lexer.expected(") (varargs must be final argument)");
+            }
+            continue;
+        }
+
         if (lexer.curToken.type != TOK_IDENTIFIER) {
             return lexer.expected("argument identifier");
         }
@@ -578,11 +590,12 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
     }
 
     auto ast = std::make_unique<FuncAST>(
-        funcName,
         std::move(signature),
         returnType,
         std::move(block),
-        isExtern
+        funcName,
+        isExtern,
+        hasVarArgs
     );
     ast->setDebugInfo(lexer.popDebugInfo());
     return ast;

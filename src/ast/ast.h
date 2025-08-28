@@ -238,18 +238,21 @@ class FuncAST : public TopLevelAST, public StatementAST {
 public:
     std::string funcName;
     bool isExtern;
+    // Only allowed for extern functions!
+    bool hasVarArgs;
 
     explicit FuncAST(
-        std::string funcName,
-        std::vector<SigArg>
-        signature,
+        std::vector<SigArg> signature,
         GeneratedType* returnType,
         std::optional<std::unique_ptr<BlockAST> > block,
-        const bool isExtern): funcName(std::move(funcName)),
-                              signature(std::move(signature)),
-                              returnType(returnType),
-                              block(std::move(block)),
-                              isExtern(isExtern) {
+        std::string funcName,
+        const bool isExtern,
+        const bool hasVarArgs): signature(std::move(signature)),
+                                returnType(returnType),
+                                block(std::move(block)),
+                                funcName(std::move(funcName)),
+                                isExtern(isExtern),
+                                hasVarArgs(hasVarArgs) {
     }
 
     std::string toString() override;

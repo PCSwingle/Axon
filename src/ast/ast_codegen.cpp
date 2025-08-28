@@ -397,6 +397,11 @@ bool FuncAST::codegen(ModuleState& state) {
         return false;
     }
 
+    if (hasVarArgs && !isExtern) {
+        state.setError(this->debugInfo, "variadic arguments only supported for extern functions");
+        return false;
+    }
+
     auto* function = static_cast<Function*>(declaration->value);
     for (int i = 0; i < signature.size(); i++) {
         auto arg = function->getArg(i);

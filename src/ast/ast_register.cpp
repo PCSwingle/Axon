@@ -33,7 +33,7 @@ std::shared_ptr<GeneratedValue> FuncAST::declare(ModuleState& state, const std::
         argTypes.push_back(type->getLLVMType(state));
     }
     auto functionType = TypeBacker(std::make_tuple(args, returnType), false);
-    FunctionType* type = FunctionType::get(returnType->getLLVMType(state), argTypes, false);
+    FunctionType* type = FunctionType::get(returnType->getLLVMType(state), argTypes, hasVarArgs);
     auto* function = Function::Create(type,
                                       Function::ExternalLinkage,
                                       twine,

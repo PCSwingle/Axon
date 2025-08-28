@@ -1,5 +1,4 @@
 #include "ast/ast.h"
-#include "logging.h"
 #include "lexer/lexer.h"
 #include "module/generated.h"
 #include "module/module_state.h"
@@ -30,11 +29,11 @@ std::unique_ptr<GeneratedValue> SubscriptExprAST::codegenPointer(ModuleState& st
     if (!arrayVal) {
         return nullptr;
     }
-    auto indexVal = indexExpr->codegenValue(state, GeneratedType::get(KW_USIZE));
+    auto indexVal = indexExpr->codegenValue(state, GeneratedType::rawGet(KW_USIZE));
     if (!indexVal) {
         return nullptr;
     }
-    if (indexVal->type != GeneratedType::get(KW_USIZE)) {
+    if (indexVal->type != GeneratedType::rawGet(KW_USIZE)) {
         return state.setError(this->debugInfo,
                               "Arrays must be indexed with usize type, got " + indexVal->type->toString());
     }

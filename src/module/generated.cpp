@@ -7,14 +7,34 @@
 #include "ast/llvm_utils.h"
 #include "lexer/lexer.h"
 
-std::unordered_map<TypeBacker, GeneratedType*, TypeBackerHash> GeneratedType::registeredTypes{};
+bool TypeBacker::operator==(const TypeBacker& other) const {
+    return this->backer == other.backer && this->owned == other.owned;
+}
 
-GeneratedType* GeneratedType::rawGet(const std::string& rawType) {
-    if (rawType.ends_with("[]")) {
-        return get(rawGet(rawType.substr(0, rawType.length() - 2)));
+size_t std::hash<TypeBacker>::operator()(const TypeBacker& type) const noexcept {
+    size_t seed = std::hash<std::variant<std::string, GeneratedType*, FunctionTypeBacker> >()(type.backer);
+    seed = combineHash(seed, std::hash<bool>()(type.owned));
+    return seed;
+}
+
+std::unordered_map<TypeBacker, GeneratedType*> GeneratedType::registeredTypes{};
+
+GeneratedType* GeneratedType::rawGet(std::string rawType) {
+    bool owned;
+    if (rawType.ends_with("~")) {
+        owned = true;
+        rawType.pop_back();
     } else {
-        return get(rawType);
+        owned = false;
     }
+
+    std::variant<std::string, GeneratedType*, FunctionTypeBacker> backer;
+    if (rawType.ends_with("[]")) {
+        backer = rawGet(rawType.substr(0, rawType.length() - 2));
+    } else {
+        backer = rawType;
+    }
+    return get(TypeBacker(backer, owned));
 }
 
 GeneratedType* GeneratedType::get(const TypeBacker& type) {
@@ -32,14 +52,14 @@ void GeneratedType::free() {
 }
 
 bool GeneratedType::isBase() {
-    return std::holds_alternative<std::string>(type);
+    return std::holds_alternative<std::string>(type.backer);
 }
 
 bool GeneratedType::isBool() {
     if (!isBase()) {
         return false;
     }
-    auto ty = std::get<std::string>(type);
+    auto ty = std::get<std::string>(type.backer);
     return ty == KW_BOOL;
 }
 
@@ -47,19 +67,19 @@ bool GeneratedType::isVoid() {
     if (!isBase()) {
         return false;
     }
-    auto ty = std::get<std::string>(type);
+    auto ty = std::get<std::string>(type.backer);
     return ty == KW_VOID;
 }
 
 bool GeneratedType::isPrimitive() {
-    return isBase() && TYPES.contains(std::get<std::string>(type));
+    return isBase() && TYPES.contains(std::get<std::string>(type.backer));
 }
 
 bool GeneratedType::isFloating() {
     if (!isBase()) {
         return false;
     }
-    auto ty = std::get<std::string>(type);
+    auto ty = std::get<std::string>(type.backer);
     return ty == KW_FLOAT || ty == KW_DOUBLE;
 }
 
@@ -67,7 +87,7 @@ bool GeneratedType::isSigned() {
     if (!isBase()) {
         return false;
     }
-    auto ty = std::get<std::string>(type);
+    auto ty = std::get<std::string>(type.backer);
     return ty == KW_LONG || ty == KW_INT || ty == KW_BYTE || ty == KW_ISIZE;
 }
 
@@ -75,36 +95,36 @@ bool GeneratedType::isNumber() {
     if (!isBase()) {
         return false;
     }
-    auto ty = std::get<std::string>(type);
+    auto ty = std::get<std::string>(type.backer);
     return ty == KW_LONG || ty == KW_ULONG || ty == KW_INT || ty == KW_UINT ||
            ty == KW_BYTE || ty == KW_UBYTE || ty == KW_ISIZE || ty == KW_USIZE;
 }
 
 bool GeneratedType::isArray() {
-    return std::holds_alternative<GeneratedType*>(type);
+    return std::holds_alternative<GeneratedType*>(type.backer);
 }
 
 GeneratedType* GeneratedType::getArrayBase() {
-    return isArray() ? std::get<GeneratedType*>(type) : nullptr;
+    return isArray() ? std::get<GeneratedType*>(type.backer) : nullptr;
 }
 
-GeneratedType* GeneratedType::getArrayType() {
-    return get(this);
+GeneratedType* GeneratedType::getArrayType(const bool owned) {
+    return get(TypeBacker(this, owned));
 }
 
 bool GeneratedType::isFunction() {
-    return std::holds_alternative<FunctionTypeBacker>(type);
+    return std::holds_alternative<FunctionTypeBacker>(type.backer);
 }
 
 std::vector<GeneratedType*> GeneratedType::getArgs() {
     if (!isFunction()) {
         return std::vector<GeneratedType*>();
     }
-    return std::get<0>(std::get<FunctionTypeBacker>(type));
+    return std::get<0>(std::get<FunctionTypeBacker>(type.backer));
 }
 
 GeneratedType* GeneratedType::getReturnType() {
-    return isFunction() ? std::get<1>(std::get<FunctionTypeBacker>(type)) : nullptr;
+    return isFunction() ? std::get<1>(std::get<FunctionTypeBacker>(type.backer)) : nullptr;
 }
 
 bool GeneratedType::isDefined(ModuleState& state) {
@@ -125,7 +145,7 @@ bool GeneratedType::isDefined(ModuleState& state) {
 }
 
 GeneratedStruct* GeneratedType::getGenStruct(ModuleState& state) {
-    return isBase() ? state.getStruct(std::get<std::string>(type)) : nullptr;
+    return isBase() ? state.getStruct(std::get<std::string>(type.backer)) : nullptr;
 }
 
 Type* GeneratedType::getLLVMType(const ModuleState& state) {
@@ -140,7 +160,7 @@ Type* GeneratedType::getLLVMType(const ModuleState& state) {
     }
 
     assert(isBase());
-    auto ty = std::get<std::string>(type);
+    auto ty = std::get<std::string>(type.backer);
     if (ty == KW_BYTE || ty == KW_UBYTE) {
         return Type::getInt8Ty(*state.ctx);
     } else if (ty == KW_INT || ty == KW_UINT) {

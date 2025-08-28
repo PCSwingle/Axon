@@ -2,8 +2,6 @@
 #include <memory>
 
 #include "lexer/lexer.h"
-#include "logging.h"
-
 #include "ast.h"
 #include "module/generated.h"
 
@@ -14,10 +12,17 @@ GeneratedType* parseType(Lexer& lexer) {
     auto type = lexer.curToken.rawToken;
     lexer.consume();
 
-    while (lexer.curToken.rawToken == "[" && lexer.peek(1).rawToken == "]") {
-        type += "[]";
-        lexer.consume();
-        lexer.consume();
+    while (lexer.curToken.rawToken == "~" || (lexer.curToken.rawToken == "[" && lexer.peek(1).rawToken == "]")) {
+        if (lexer.curToken.rawToken == "~") {
+            type += "~";
+            lexer.consume();
+        } else if (lexer.curToken.rawToken == "[") {
+            type += "[]";
+            lexer.consume();
+            lexer.consume();
+        } else {
+            assert(false);
+        }
     }
 
     return GeneratedType::rawGet(type);
@@ -561,7 +566,7 @@ std::unique_ptr<FuncAST> parseFunc(Lexer& lexer) {
             return nullptr;
         }
     } else {
-        returnType = GeneratedType::get(KW_VOID);
+        returnType = GeneratedType::rawGet(KW_VOID);
     }
 
     std::optional<std::unique_ptr<BlockAST> > block;

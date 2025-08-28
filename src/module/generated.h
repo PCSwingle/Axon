@@ -21,13 +21,30 @@ class ModuleState;
 
 struct SigArg;
 
+struct TypeBacker {
+    std::variant<std::string, GeneratedType*, FunctionTypeBacker> backer;
+    bool owned;
+    // TODO: add optional
+
+    explicit TypeBacker(const std::variant<std::string, GeneratedType*, FunctionTypeBacker>& backer,
+                        const bool owned): backer(backer), owned(owned) {
+    }
+
+    bool operator==(const TypeBacker& other) const;
+};
+
+template<>
+struct std::hash<TypeBacker> {
+    size_t operator()(const TypeBacker& type) const noexcept;
+};
+
 /// Similar to LLVM, types are pointers to singletons that aren't freed until program end (flyweights).
 /// Every individual type is a pointer to the same object.
 /// Note: types are identified solely by the identifier used in their unit, so types between units
 /// are not guaranteed equal.
 struct GeneratedType {
 private:
-    static std::unordered_map<TypeBacker, GeneratedType*, TypeBackerHash> registeredTypes;
+    static std::unordered_map<TypeBacker, GeneratedType*> registeredTypes;
 
     TypeBacker type;
 
@@ -35,7 +52,7 @@ private:
     }
 
 public:
-    static GeneratedType* rawGet(const std::string& rawType);
+    static GeneratedType* rawGet(std::string rawType);
 
     static GeneratedType* get(const TypeBacker& type);
 
@@ -61,7 +78,7 @@ public:
 
     GeneratedType* getArrayBase();
 
-    GeneratedType* getArrayType();
+    GeneratedType* getArrayType(bool owned);
 
     bool isFunction();
 

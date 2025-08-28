@@ -32,7 +32,7 @@ std::shared_ptr<GeneratedValue> FuncAST::declare(ModuleState& state, const std::
         args.push_back(type);
         argTypes.push_back(type->getLLVMType(state));
     }
-    auto functionType = std::make_tuple(args, returnType);
+    auto functionType = TypeBacker(std::make_tuple(args, returnType), false);
     FunctionType* type = FunctionType::get(returnType->getLLVMType(state), argTypes, false);
     auto* function = Function::Create(type,
                                       Function::ExternalLinkage,
@@ -86,7 +86,7 @@ bool StructAST::preregister(ModuleState& state, const std::string& unit) {
                                         structName,
                                         std::make_unique<Identifier>(
                                             GeneratedStruct(
-                                                GeneratedType::get(structName),
+                                                GeneratedType::get(TypeBacker(structName, true)),
                                                 std::move(fields),
                                                 std::move(generatedMethods),
                                                 structType)))) {

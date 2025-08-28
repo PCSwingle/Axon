@@ -44,34 +44,34 @@ std::unique_ptr<GeneratedValue> ValueExprAST::codegenValue(ModuleState& state, G
         auto strVal = rawValue.substr(1, rawValue.length() - 2);
         return state.setError(this->debugInfo, "string literals not implemented yet");
     } else if (rawValue == KW_TRUE) {
-        return std::make_unique<GeneratedValue>(GeneratedType::get(KW_BOOL), ConstantInt::getTrue(*state.ctx));
+        return std::make_unique<GeneratedValue>(GeneratedType::rawGet(KW_BOOL), ConstantInt::getTrue(*state.ctx));
     } else if (rawValue == KW_FALSE) {
-        return std::make_unique<GeneratedValue>(GeneratedType::get(KW_BOOL), ConstantInt::getFalse(*state.ctx));
+        return std::make_unique<GeneratedValue>(GeneratedType::rawGet(KW_BOOL), ConstantInt::getFalse(*state.ctx));
     } else if (rawValue.find('.') != std::string::npos) {
         APFloat apVal(APFloat::IEEEsingle());
-        if (impliedType == GeneratedType::get(KW_DOUBLE)) {
+        if (impliedType == GeneratedType::rawGet(KW_DOUBLE)) {
             apVal = APFloat(APFloat::IEEEdouble(), rawValue);
-        } else if (impliedType == GeneratedType::get(KW_FLOAT)) {
+        } else if (impliedType == GeneratedType::rawGet(KW_FLOAT)) {
             apVal = APFloat(APFloat::IEEEsingle(), rawValue);
         } else {
             // Default floating type
-            impliedType = GeneratedType::get(KW_DOUBLE);
+            impliedType = GeneratedType::rawGet(KW_DOUBLE);
             apVal = APFloat(APFloat::IEEEdouble(), rawValue);
         }
         return std::make_unique<GeneratedValue>(impliedType, ConstantFP::get(impliedType->getLLVMType(state), apVal));
     } else {
         APInt apVal;
-        if (impliedType == GeneratedType::get(KW_LONG) || impliedType == GeneratedType::get(KW_ULONG)) {
+        if (impliedType == GeneratedType::rawGet(KW_LONG) || impliedType == GeneratedType::rawGet(KW_ULONG)) {
             apVal = APInt(64, rawValue, 10);
-        } else if (impliedType == GeneratedType::get(KW_INT) || impliedType == GeneratedType::get(KW_UINT)) {
+        } else if (impliedType == GeneratedType::rawGet(KW_INT) || impliedType == GeneratedType::rawGet(KW_UINT)) {
             apVal = APInt(32, rawValue, 10);
-        } else if (impliedType == GeneratedType::get(KW_BYTE) || impliedType == GeneratedType::get(KW_UBYTE)) {
+        } else if (impliedType == GeneratedType::rawGet(KW_BYTE) || impliedType == GeneratedType::rawGet(KW_UBYTE)) {
             apVal = APInt(8, rawValue, 10);
-        } else if (impliedType == GeneratedType::get(KW_ISIZE) || impliedType == GeneratedType::get(KW_USIZE)) {
+        } else if (impliedType == GeneratedType::rawGet(KW_ISIZE) || impliedType == GeneratedType::rawGet(KW_USIZE)) {
             apVal = APInt(state.sizeTy->getIntegerBitWidth(), rawValue, 10);
         } else {
             // Default int type
-            impliedType = GeneratedType::get(KW_INT);
+            impliedType = GeneratedType::rawGet(KW_INT);
             apVal = APInt(32, rawValue, 10);
         }
         // todo: if number overflows raise error
@@ -209,7 +209,7 @@ std::unique_ptr<GeneratedValue> BinaryOpExprAST::codegenValue(ModuleState& state
         type = L->type;
         val = state.builder->CreateBinOp(op.value(), L->value, R->value, binOp + "_binop");
     } else if (cmpOp.has_value()) {
-        type = GeneratedType::get(KW_BOOL);
+        type = GeneratedType::rawGet(KW_BOOL);
         val = state.builder->CreateCmp(cmpOp.value(), L->value, R->value, binOp + "_cmpop");
     } else {
         return state.setError(this->debugInfo, "binop " + binOp + " not implemented yet");
@@ -357,10 +357,10 @@ std::unique_ptr<GeneratedValue> ArrayExprAST::codegenValue(ModuleState& state, G
                                                              arrayPointer,
                                                              std::vector<unsigned>{0},
                                                              "arr_ptr_insert");
-    auto arrayValue = std::make_unique<GeneratedValue>(baseType->getArrayType(), arrayFatPointer);
+    auto arrayValue = std::make_unique<GeneratedValue>(baseType->getArrayType(true), arrayFatPointer);
 
     for (auto&& [i, genValue]: enumerate(genValues)) {
-        auto indexValue = std::make_unique<GeneratedValue>(GeneratedType::get(KW_USIZE),
+        auto indexValue = std::make_unique<GeneratedValue>(GeneratedType::rawGet(KW_USIZE),
                                                            state.builder->CreateTrunc(
                                                                ConstantInt::get(*state.ctx, APInt(64, i)),
                                                                state.sizeTy));
@@ -523,7 +523,7 @@ bool VarAST::codegen(ModuleState& state) {
 }
 
 bool IfAST::codegen(ModuleState& state) {
-    auto val = expr->codegenValue(state, GeneratedType::get(KW_BOOL));
+    auto val = expr->codegenValue(state, GeneratedType::rawGet(KW_BOOL));
     if (!val) {
         return false;
     }
@@ -575,7 +575,7 @@ bool WhileAST::codegen(ModuleState& state) {
     state.builder->CreateBr(condBB);
     state.builder->SetInsertPoint(condBB);
 
-    auto val = expr->codegenValue(state, GeneratedType::get(KW_BOOL));
+    auto val = expr->codegenValue(state, GeneratedType::rawGet(KW_BOOL));
     if (!val) {
         return false;
     }

@@ -5,14 +5,15 @@
 #include "module/generated.h"
 
 std::string GeneratedType::toString() {
+    std::string str;
     if (isBase()) {
-        return std::get<std::string>(type);
+        str = std::get<std::string>(type.backer);
     } else if (isArray()) {
-        return std::get<GeneratedType*>(type)->toString() + "[]";
+        str = std::get<GeneratedType*>(type.backer)->toString() + "[]";
     } else if (isFunction()) {
         std::ostringstream result;
         result << "((";
-        auto ty = std::get<FunctionTypeBacker>(type);
+        auto ty = std::get<FunctionTypeBacker>(type.backer);
         auto args = std::get<0>(ty);
         for (const auto&& [i, arg]: std::views::enumerate(args)) {
             result << arg->toString();
@@ -21,9 +22,14 @@ std::string GeneratedType::toString() {
             }
         }
         result << ") -> " << std::get<1>(ty)->toString() << ")";
-        return result.str();
+        str = result.str();
+    } else {
+        assert(false);
     }
-    assert(false);
+    if (type.owned) {
+        str += "~";
+    }
+    return str;
 }
 
 std::string ValueExprAST::toString() {

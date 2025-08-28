@@ -3,8 +3,6 @@
 #include <filesystem>
 #include <vector>
 
-#include "typedefs.h"
-
 struct GeneratedType;
 
 std::vector<std::string> split(const std::string& str, const std::string& separator);
@@ -13,12 +11,29 @@ std::string readStdin();
 
 std::string readFile(const std::filesystem::path& filename);
 
-struct TypeBackerHash {
-    size_t operator()(const TypeBacker& type) const;
+size_t combineHash(size_t seed, size_t other);
 
-    size_t operator()(const std::string& type) const;
+template<typename... Ts>
+struct std::hash<std::tuple<Ts...> > {
+    size_t operator()(std::tuple<Ts...> const& tup) const noexcept {
+        return std::apply([]<typename... T0>(T0 const&... elems) {
+                              size_t seed = 0;
+                              ((seed = combineHash(std::hash<std::decay_t<T0> >{}(elems), seed)),
+                                  ...
+                              );
+                              return seed;
+                          },
+                          tup);
+    }
+};
 
-    size_t operator()(GeneratedType* type) const;
-
-    size_t operator()(const FunctionTypeBacker& type) const;
+template<typename... Ts>
+struct std::hash<std::vector<Ts...> > {
+    size_t operator()(std::vector<Ts...> const& vec) const noexcept {
+        std::size_t seed = 0;
+        for (auto const& el: vec) {
+            seed = combineHash(std::hash<std::decay_t<decltype(el)> >{}(el), seed);
+        }
+        return seed;
+    }
 };

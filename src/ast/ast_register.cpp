@@ -25,7 +25,7 @@ bool ImportAST::postregister(ModuleState& state, const std::string& unit) {
     return true;
 }
 
-std::shared_ptr<GeneratedValue> FuncAST::declare(ModuleState& state, const std::string& twine) {
+std::shared_ptr<GeneratedValue> FuncAST::declare(const ModuleState& state, const std::string& twine) {
     std::vector<GeneratedType*> args{};
     std::vector<Type*> argTypes;
     for (const auto& [type, identifier]: signature) {

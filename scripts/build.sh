@@ -1,1 +1,1 @@
-BUILD_OUT=$(./cmake-build-debug/Axon $1 -o - -l) && echo "$BUILD_OUT" | clang testdir/c_lib.c -x ir - -o testdir/a.out
+BUILD_OUT=$(./cmake-build-debug/Axon $1 -o - -l) && echo "$BUILD_OUT" | clang -x ir - -o testdir/a.out

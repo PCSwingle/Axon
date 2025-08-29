@@ -259,7 +259,7 @@ public:
 
     // function twine is _only_ used to interface with external libraries. Otherwise, twine should simply be unique.
     // used to create an llvm function declaration, but NOT put into scope.
-    std::shared_ptr<GeneratedValue> declare(ModuleState& state, const std::string& twine);
+    std::shared_ptr<GeneratedValue> declare(const ModuleState& state, const std::string& twine);
 
     bool preregister(ModuleState& state, const std::string& unit) override;
 

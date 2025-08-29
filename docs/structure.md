@@ -29,20 +29,20 @@ To export a function or struct from a file, simply add `export`. Exported object
 └── dir
     └── test.ax
 
-### axon.toml ###
+// ### axon.toml ###
 name = "myModule"
 main = "myModule.main"
 
-### dir/test.ax ###
+// ### dir/test.ax ###
 export func add(a: int, b: int): int {
     return a + b
 }
 
-### main.ax ###
-# We can import the function normally...
+// ### main.ax ###
+// We can import the function normally...
 from myModule.dir.test import add
 
-# ...or use an alias:
+// ...or use an alias:
 from myModule.dir.test import add as add_func
 
 func main() {

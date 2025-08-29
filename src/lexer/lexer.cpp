@@ -34,12 +34,14 @@ Token Lexer::consume() {
     return curToken;
 }
 
-Token Lexer::peek(const int num) {
-    if (tokenIndex + num < tokens.size()) {
-        return tokens[tokenIndex + num];
-    } else {
+Token Lexer::peek(int num) {
+    while (tokenIndex + num < tokens.size() && tokens[tokenIndex + num].type == TOK_WHITESPACE) {
+        num += 1;
+    }
+    if (tokenIndex + num >= tokens.size()) {
         return Token();
     }
+    return tokens[tokenIndex + num];
 }
 
 
@@ -51,6 +53,7 @@ Token Lexer::process() {
             rawToken += cur;
             next();
         }
+        // TODO: this ruins everything. get rid of it
         return Token(rawToken, TOK_WHITESPACE);
     }
 
@@ -102,7 +105,7 @@ Token Lexer::process() {
     }
 
     // comments
-    if (cur == '#') {
+    if (cur == '/' && peekChar(1) == '/') {
         while (cur != '\n' && cur != EOF) {
             next();
         }
@@ -143,16 +146,6 @@ Token Lexer::process() {
         auto endChar = cur;
         next();
         while (cur != endChar && cur != EOF) {
-            if (cur == '\\') {
-                next();
-                if (!ESCAPES.contains(cur)) {
-                    logWarning("Non escapeable character `" + std::string(1, cur) + "` escaped");
-                } else {
-                    rawToken += ESCAPES.at(cur);
-                    next();
-                    continue;
-                }
-            }
             rawToken += cur;
             next();
         }

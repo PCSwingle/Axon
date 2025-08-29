@@ -6,6 +6,7 @@
 
 #include "ast.h"
 #include "llvm_utils.h"
+#include "logging.h"
 #include "module/module_state.h"
 #include "module/generated.h"
 #include "lexer/lexer.h"
@@ -41,7 +42,25 @@ bool ExprAST::codegen(ModuleState& state) {
 
 std::unique_ptr<GeneratedValue> ValueExprAST::codegenValue(ModuleState& state, GeneratedType* impliedType) {
     if (rawValue.front() == '\"' || rawValue.front() == '\'') {
-        auto strVal = rawValue.substr(1, rawValue.length() - 2);
+        auto rawStr = rawValue.substr(1, rawValue.length() - 2);
+        std::ostringstream ss;
+        int i = 0;
+        while (i < rawStr.length()) {
+            if (rawStr[i] == '\\' && i < rawStr.length() - 1) {
+                i += 1;
+                if (!ESCAPES.contains(rawStr[i])) {
+                    logWarning("Non escapeable character `" + std::string(1, rawStr[i]) + "` escaped");
+                    ss << rawStr[i];
+                } else {
+                    ss << ESCAPES.at(rawStr[i]);
+                }
+            } else {
+                ss << rawStr[i];
+            }
+            i += 1;
+        }
+        auto strVal = ss.str();
+
         auto intern = state.getInternedString(strVal);
         // TODO: make string type
         auto baseType = GeneratedType::rawGet(KW_UBYTE);
@@ -250,7 +269,7 @@ std::unique_ptr<GeneratedValue> CallExprAST::codegenValue(ModuleState& state, Ge
                               "Expected " + std::to_string(argTypes.size()) + " arguments, got " +
                               std::to_string(
                                   args.size()) +
-                              "arguments");
+                              " arguments");
     }
 
     std::vector<Value*> argsV;

@@ -5,7 +5,7 @@
 ### Comments
 
 ```
-# This is a comment
+// This is a comment
 /*
 This is a multi-line comment
 */
@@ -17,48 +17,48 @@ This is a multi-line comment
 let my_bool: bool = True | False
 let my_32bit_num = 0
 let my_64bit_num: long = 0L
-let optional_int: int? = null # all types can be optional, i.e. can be null
-x = optional_int! + n # at your own risk you can assert that it isn't null
+let optional_int: int? = null // all types can be optional, i.e. can be null
+x = optional_int! + n // at your own risk you can assert that it isn't null
 ```
 
 ### Variables
 
 ```
-let x = 2 # Semicolons not required (but are allowed)
+let x = 2 // Semicolons not required (but are allowed)
 let b = ( a ||
            b ||
            c
-         ) # Multi-line expressions require parentheses
+         ) // Multi-line expressions require parentheses
 if (b) {
-    # Shadowing not allowed
-    let b: bool = False # Will crash!
+    // Shadowing not allowed
+    let b: bool = false // Will crash!
 }
 ```
 
 ### Operators
 
 ```
-= # Assignment
-+ # Addition
-- # Subtraction
-* # Multiplication
-/ # Division
-% # Modulus
-< # Less than
-> # Greater than
-! # Boolean not
-== # Eq
-!= # Neq
-<= # Lte
->= # Gte
-|| # Boolean or
-&& # Boolean and
-<< # Left shift
->> # Right shift
-^ # Bitwise xor
-& # Bitwise and
-| # Bitwise or
-~ # Bitwise not
+= // Assignment
++ // Addition
+- // Subtraction
+* // Multiplication
+/ // Division
+% // Modulus
+< // Less than
+> // Greater than
+! // Boolean not
+== // Eq
+!= // Neq
+<= // Lte
+>= // Gte
+|| // Boolean or
+&& // Boolean and
+<< // Left shift
+>> // Right shift
+^ // Bitwise xor
+& // Bitwise and
+| // Bitwise or
+~ // Bitwise not
 ```
 
 ### Functions
@@ -73,18 +73,18 @@ func my_func(var1: int, var2: int): int {
 
 ```
 if (x) {
-    # Do work...
+    // Do work...
 } elif (y) {
-    # Do other work...
+    // Do other work...
 } else {
-    # You get the idea
+    // You get the idea
 }
 
 while (b) {
-    # Do things...
+    // Do things...
 }
 
-# TODO: determine for loop syntax
+// TODO: determine for loop syntax
 for () {
 
 }

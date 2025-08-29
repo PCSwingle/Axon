@@ -683,7 +683,7 @@ bool isVarAssignment(Lexer& lexer) {
 std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
     std::unique_ptr<StatementAST> statement;
 
-    if (lexer.curToken.rawToken == KW_FUNC || lexer.curToken.rawToken == KW_EXTERN) {
+    if (lexer.curToken.rawToken == KW_FUNC) {
         statement = parseFunc(lexer);
     } else if (lexer.curToken.rawToken == KW_IF) {
         statement = parseIf(lexer);
@@ -709,8 +709,9 @@ std::unique_ptr<StatementAST> parseStatement(Lexer& lexer) {
 std::unique_ptr<TopLevelAST> parseTopLevel(Lexer& lexer) {
     lexer.startDebugStatement();
     std::unique_ptr<TopLevelAST> statement;
-
-    if (lexer.curToken.rawToken == KW_FUNC || lexer.curToken.rawToken == KW_EXTERN) {
+    if (lexer.curToken.rawToken == KW_FUNC ||
+        (lexer.curToken.rawToken == KW_EXTERN &&
+         lexer.peek(1).rawToken == KW_FUNC)) {
         statement = parseFunc(lexer);
     } else if (lexer.curToken.rawToken == KW_STRUCT) {
         statement = parseStruct(lexer);

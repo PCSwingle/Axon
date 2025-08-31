@@ -104,6 +104,39 @@ bool StructAST::postregister(ModuleState& state, const std::string& unit) {
     return true;
 }
 
+bool VarAST::preregister(ModuleState& state, const std::string& unit) {
+    assert(false && "global variables not yet implemented");
+    /*
+    if (!definition) {
+        state.setError(this->debugInfo, "Global variables must be definitions");
+        return false;
+    }
+
+    auto raw = dynamic_cast<VariableExprAST*>(variableExpr.get());
+    if (!raw) {
+        state.setError(this->debugInfo, "Cannot define variables with accessors");
+        return false;
+    }
+
+    auto value = expr->codegenValue(state, type.value_or(nullptr));
+    if (!value) {
+        return false;
+    }
+    */
+}
+
+bool VarAST::postregister(ModuleState& state, const std::string& unit) {
+    assert(false && "global variables not yet implemented");
+    /*
+    if (!state.useGlobalIdentifier(unit, varName, varName)) {
+        state.setError(this->debugInfo, "Duplicate identifier " + structName);
+        return false;
+    }
+    */
+    return true;
+}
+
+
 bool UnitAST::preregisterUnit(ModuleState& state) {
     for (const auto& statement: statements) {
         if (!statement->preregister(state, unit)) {

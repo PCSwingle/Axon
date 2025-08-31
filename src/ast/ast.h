@@ -290,7 +290,7 @@ public:
 };
 
 // statements
-class VarAST : public StatementAST {
+class VarAST : public TopLevelAST, public StatementAST {
     bool definition;
     std::unique_ptr<AssignableAST> variableExpr;
     std::optional<GeneratedType*> type;
@@ -310,6 +310,10 @@ public:
     }
 
     std::string toString() override;
+
+    bool preregister(ModuleState& state, const std::string& unit) override;
+
+    bool postregister(ModuleState& state, const std::string& unit) override;
 
     bool codegen(ModuleState& state) override;
 };

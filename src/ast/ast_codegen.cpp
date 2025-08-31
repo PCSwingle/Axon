@@ -497,7 +497,7 @@ bool VarAST::codegen(ModuleState& state) {
 
         auto raw = dynamic_cast<VariableExprAST*>(variableExpr.get());
         if (!raw) {
-            state.setError(this->debugInfo, "Can only define raw variables");
+            state.setError(this->debugInfo, "Cannot define variables with accessors");
             return false;
         }
         GeneratedType* varType = type.value_or(value->type);
